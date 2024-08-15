@@ -1,3 +1,9 @@
-This directory contains the app.R files that was used to build the shiny app that is hosted on 
+# Sample Shiny App
 
-[https://bioinfmsc8.bio.ed.ac.uk/sample-apps/B236494/](url).
+This repository contains the `app.R` file used to build the Shiny app hosted 
+
+[here](https://bioinfmsc8.bio.ed.ac.uk/sample-apps/B236494/).
+
+Click the link above to view the app.
+
+
