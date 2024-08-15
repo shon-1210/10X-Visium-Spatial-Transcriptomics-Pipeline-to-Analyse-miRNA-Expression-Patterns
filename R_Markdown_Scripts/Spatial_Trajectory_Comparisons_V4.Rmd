@@ -1,0 +1,883 @@
+---
+title: "SPATA2_V4_Spatial_Trajectory_Comparisons"
+output:
+  html_document:
+    df_print: paged
+    output_dir: 
+    output_file: 
+  pdf_document:
+    extra_dependencies: subfig
+    latex_engine: xelatex
+header-includes:
+- \usepackage{fontspec}
+- \setmainfont{Times New Roman}
+editor_options: 
+  chunk_output_type:
+---
+
+
+## Setup + Loading Required Libraries:
+
+Ensure Seurat V = 5.0.3 & SPATA2 V = 2.0.4
+
+```{r setup, include=FALSE}
+library(Seurat)
+library(SeuratData)
+library(ggplot2)
+library(patchwork)
+library(tidyverse)
+library(dplyr)
+library(spacexr)
+library(SPATA2)
+library(stringr) # for imaging
+library(BayesSpace)
+library(keras)
+library(readr)
+library(glmGamPoi)
+library(gridExtra)
+library(knitr)
+library(pheatmap)
+library(cowplot)
+
+# Remember to change the output_file parameter in the YAML front matter
+# according to the dataset used
+
+
+## So that sufficient time is available to load the data from SPATAData
+getOption("timeout")
+options(timeout = 100)
+
+# To avoid Warning message during knit to html:
+# ggrepel: 8 unlabeled data points (too many overlaps). 
+# Consider increasing max.overlaps
+options(ggrepel.max.overlaps = Inf)
+
+
+```
+
+## Plotting distributions and spread of counts
+
+```{r fig.height=8, fig.width=8, out.width="100%"}
+
+##get the Brain2 dataset V3 RDS FILE
+main_spata2_obj_hi_res <- readRDS("~/MSc_Dissertation_Analysis_Folder_Legion/SPATA/SPATA2_Master_Analysis_Folder/RDS_Files_V3_Script/GSE153859_Brain_V3/GSM4656179_Brain_CBS2_V3_denoised.rds")
+
+# The normalised count matrix should be used for all DEA
+  
+#full feature matrix
+full_feature_df <- getFeatureDf(main_spata2_obj_hi_res)
+
+# get count matrix and convert them to dataframes
+exp_matrix_scaled <- getCountMatrix(main_spata2_obj_hi_res)
+exp_matrix_scaled <- as.data.frame(exp_matrix_scaled)
+  
+#log1p normalise
+exp_matrix_scaled <- log1p(exp_matrix_scaled)
+  
+ncm_matrix <- exp_matrix_scaled
+
+ncm_matrix_numeric <- as.matrix(ncm_matrix)
+
+nGenes(main_spata2_obj_hi_res)
+
+# This adds the matrix successfully
+# needed to convert to matrix before it could be added to the object
+main_spata2_obj_hi_res <- addExpressionMatrix(main_spata2_obj_hi_res, ncm_matrix_numeric, mtr_name="ncm")
+
+main_spata2_obj_hi_res <- setActiveMatrix(object = main_spata2_obj_hi_res, mtr_name = "ncm")
+
+getActiveExpressionMatrixName(main_spata2_obj_hi_res)
+
+
+# Create the individual plots
+plot1 <- plotSurface(
+  object = main_spata2_obj_hi_res,
+  color_by = "bayes_space",
+  pt_size = 2.3,
+  pt_clrp = "uc"
+) + 
+labs(subtitle = "Bayes Space Clusters") +
+theme(
+  legend.text = element_text(size = 8),  # Adjust legend text size
+  legend.title = element_text(size = 10) # Adjust legend title size
+)
+
+plot2 <- plotSurface(
+  object = main_spata2_obj_hi_res,
+  color_by = "kmeans_4_HW",
+  pt_clrp = "uc",
+  pt_size = 2.3
+) + 
+labs(subtitle = "HW Kmeans Clusters") +
+theme(
+  legend.text = element_text(size = 8),  # Adjust legend text size
+  legend.title = element_text(size = 10) # Adjust legend title size
+)
+
+plot3 <- plotSurface(
+    object = main_spata2_obj_hi_res, 
+    color_by = "nCount_Spatial", 
+    pt_clrsp = "Lajolla" 
+)
+
+# Combine the plots side by side using cowplot
+combined_plot <- plot_grid(plot1, plot2, plot3, ncol = 3)
+
+# Display the combined plot
+print(combined_plot)
+nGenes(main_spata2_obj_hi_res)
+
+plotDensityplot(object = main_spata2_obj_hi_res, variables = "nCount_Spatial")
+
+```
+
+
+## Plotting miR-124's top target gene expression surface plots
+```{r}
+## set up to get plots of miR-124's top targets
+
+## set denoised as default for surface plots
+main_spata2_obj_hi_res <- setActiveMatrix(object = main_spata2_obj_hi_res, mtr_name = "denoised")
+
+getActiveMatrixName(main_spata2_obj_hi_res)
+
+### Need to run parts of the test_targets V4 PIPELINE to do this
+### Run till the heatmap part
+
+
+# 2 objects to be created
+# exp matrix
+# df with barcodes and cluster numbers
+
+getSampleName(main_spata2_obj_hi_res)
+
+# get count matrix and convert them to dataframes
+exp_matrix_scaled <- getCountMatrix(main_spata2_obj_hi_res)
+exp_matrix_scaled <- as.data.frame(exp_matrix_scaled)
+
+#log1p normalise
+exp_matrix_scaled <- log1p(exp_matrix_scaled)
+
+# Get the feature df
+feature_df_full <- getFeatureDf(main_spata2_obj_hi_res)
+
+# retain only all columns except barcodes and cluster numbers for kmeans/bayesspace
+final_feature_df_kmeans <- feature_df_full %>%
+  dplyr::select(barcodes, kmeans_4_HW)
+
+# Set the barcodes as row names directly
+# kmeans
+final_feature_df_kmeans <- final_feature_df_kmeans %>%
+  column_to_rownames(var = "barcodes")
+
+# Bayes_space
+final_feature_df_bayesspace <- feature_df_full %>%
+  dplyr::select(barcodes, bayes_space)
+
+final_feature_df_bayesspace <- final_feature_df_bayesspace %>%
+  column_to_rownames(var = "barcodes")
+
+# Need to read in targets file from targetscan
+# Change the file path as needed
+targetsFile_Mouse <- "~/MSc_Dissertation_Analysis_Folder_Legion/SPATA/SPATA2_Master_Analysis_Folder/Targetscan_Data/MMS_Predicted_Targets_Context_Scores.default_predictions.txt"
+
+
+# Set the final target file to use in this execution
+targetsFile <- targetsFile_Mouse
+
+# Read the files into object
+expTabScaled <- exp_matrix_scaled
+
+cluTab_kmeans <- final_feature_df_kmeans
+cluTab_bayesspaces <- final_feature_df_bayesspace
+
+# Setting this as the whole code uses expTab
+# This iteration: kmeans & scaled
+expTab <- expTabScaled
+cluTab <- cluTab_kmeans
+tarTab <- read.table(targetsFile, sep = "\t", header = TRUE, check.names = FALSE)
+
+# check the files to see if it has been read in correctly
+# Check data
+dim(expTab)
+dim(cluTab)
+dim(tarTab)
+expTab[1:5, 1:5]
+head(cluTab)
+head(tarTab)
+
+# All barcodes from expression table should be in the cluster table
+# This should output TRUE if it is so
+all(colnames(expTab) %in% rownames(cluTab))
+
+#### Set the right clustering method
+
+
+# Whatever showed the best clustering results
+# so we set the exp matrix and cluster tab as required
+# with the heatmap that was obtained
+
+
+plotSurface(
+  object = main_spata2_obj_hi_res,
+  color_by = "kmeans_4_HW",
+  pt_clrp = "uc",
+  pt_size = 2
+) + 
+labs(subtitle = "kmeans_4_HW Clusters") +
+theme(
+  legend.text = element_text(size = 8),  # Adjust legend text size
+  legend.title = element_text(size = 10) # Adjust legend title size
+)
+
+# whatever shows the best clustering results
+# so we set the exp matrix and cluster tab as required
+
+# This iteration: kmeans & scaled
+expTab <- expTabScaled
+cluTab <- cluTab_kmeans
+
+all(colnames(expTab) %in% rownames(cluTab))
+
+# Calculate average expression per-cluster
+table(cluTab$kmeans_4_HW)
+
+# Transform clusters to names, keeping integers for names is a bad idea in R
+cluTab$clusters <- paste0("cluster.", cluTab$kmeans_4_HW)
+
+table(cluTab$clusters)
+
+
+### check the gene expression plots of top targets of miR-124 in Brain2
+
+# Compare multiple clusters together and plot on the same heatmap
+
+# Remember to turn off p-value capping here so we can see how much the p-value has increased.
+
+# Define cluster pairs for FC calculation
+# commented out as this is given in the main rmd script to be changed globally.
+cluster_pairs <- list(
+  c("cluster.7", "cluster.4"),
+  c("cluster.7", "cluster.8"),
+  c("cluster.8", "cluster.1")
+)
+
+
+
+mirs <- c("mmu-miR-124-3p.1")
+
+# How many top targets for each miRNA?
+# This can be changed as needed
+topN <- 100
+
+```
+
+```{r fig.height=6, fig.width=6, out.width="100%"}
+
+# Checking which targets are missing from dataset
+
+# Some gene symbols in miRNA targets might not be in expression
+sum(!tarTab$`Gene Symbol` %in% rownames(expTab))
+
+# The number of targets which are missing in the dataset
+numMissingTar <- (length(rownames(expTab)) - (sum(rownames(expTab) %in% tarTab$`Gene Symbol`)))
+print(paste("There are", numMissingTar, "missing targets for the chosen miRNAs in the dataset of size", length(rownames(expTab))))
+
+dim(tarTab)
+
+# Keep only those that do have expression
+tarTab <- tarTab[tarTab$`Gene Symbol` %in% rownames(expTab), ]
+dim(tarTab)
+
+# Keep only those related to mouse (mmu-) miRNAs
+tarTab <- tarTab[grepl("^mmu-", tarTab$miRNA), ]
+dim(tarTab)
+
+# Order by weighted context++ score, if ties, then context++ score
+tarTab <- tarTab[order(tarTab$`weighted context++ score`, tarTab$`context++ score`), ]
+dim(tarTab)
+
+# Mean expression values for each cluster
+
+# Prepare an empty table to store mean expression values
+meanExpr <- data.frame(row.names = rownames(expTab))
+
+for (cluster in sort(unique(cluTab$clusters))) {
+  print(paste("Average for cluster:", cluster))
+  barcodes <- rownames(cluTab)[cluTab$clusters == cluster]
+  # Check if barcodes are valid
+  if (length(barcodes) == 0) {
+    warning(paste("No barcodes found for cluster:", cluster))
+    next
+  }
+  meanExpr[, cluster] <- rowMeans(expTab[, barcodes, drop = FALSE])
+}
+
+# Check if meanExpr is correctly formed and not empty
+if (ncol(meanExpr) == 0) {
+  stop("meanExpr is empty. Check your clusters and barcodes.")
+}
+
+# Ensure that meanExpr contains numeric values
+meanExpr <- as.data.frame(lapply(meanExpr, as.numeric), row.names = rownames(meanExpr))
+
+# Check/explore
+head(meanExpr)
+boxplot(as.matrix(meanExpr), main = "Boxplot of Mean Expressions per Cluster")
+
+# Initialize p-value table
+pvalTab <- data.frame(row.names = mirs)
+
+# Checking which targets are missing from dataset
+sum(!tarTab$`Gene Symbol` %in% rownames(expTab))
+numMissingTar <- (length(rownames(expTab)) - (sum(rownames(expTab) %in% tarTab$`Gene Symbol`)))
+print(paste("There are", numMissingTar, "missing targets for the chosen miRNAs in the dataset of size", length(rownames(expTab))))
+
+# Keep only those that do have expression
+tarTab <- tarTab[tarTab$`Gene Symbol` %in% rownames(expTab), ]
+
+# Keep only those related to mouse (mmu-) miRNAs
+tarTab <- tarTab[grepl("^mmu-", tarTab$miRNA), ]
+
+# Order by weighted context++ score, if ties, then context++ score
+tarTab <- tarTab[order(tarTab$`weighted context++ score`, tarTab$`context++ score`), ]
+
+# Mean expression values for each cluste already computed earlier
+head(meanExpr)
+
+# Loop through each cluster pair
+for (specific_clusters in cluster_pairs) {
+  
+  # Check if specified clusters are in the mean expression data
+  if (!all(specific_clusters %in% colnames(meanExpr))) {
+    stop("One or more specified clusters not found in the mean expression data.")
+  }
+  
+  # Calculate fold change for the specified clusters
+  foldChange <- data.frame(row.names = rownames(meanExpr))
+  foldChange[[paste(specific_clusters[1], "vs", specific_clusters[2])]] <- meanExpr[, specific_clusters[1]] - meanExpr[, specific_clusters[2]]
+  
+  
+  for (mir in mirs) {
+    tarGenesAll <- unique(tarTab$`Gene Symbol`[tarTab$miRNA == mir])
+    tarGenesTop <- tarGenesAll[seq_len(min(topN, length(tarGenesAll)))]
+    
+    x <- foldChange[tarGenesTop, 1]
+    y <- foldChange[!rownames(foldChange) %in% tarGenesTop, 1]
+    pval <- wilcox.test(x, y)$p.value
+    pval <- log10(pval)
+    pval <- signif(pval, 2) * -sign(median(x) - median(y))
+    pvalTab[mir, paste(specific_clusters[1], "vs", specific_clusters[2])] <- signif(pval, 4)
+    
+    plot(density(y), xlim = c(-2, 2), xlab = "FC density", main = paste(mir, "targets in", paste(specific_clusters[1], "vs", specific_clusters[2])), col = "black")
+    lines(density(x), col = 'red')
+    legend("topleft", legend = c("non-targets", paste("top", length(x), "targets")), lty = 1, col = c("black", "red"), title = paste("pval =", pval), bty = "n")
+  }
+}
+
+# Convert the p-value data frame to a matrix
+logpvalMatrix <- as.matrix.data.frame(pvalTab)
+
+# Dont Cap values at -10 and 10, to see if it is higher.
+# logpvalMatrix[logpvalMatrix > 10] <- 10
+# logpvalMatrix[logpvalMatrix < -10] <- -10
+
+# Define the breaks and color palette
+breaksList <- seq(-10, 10, by = 0.1)
+myColorPalette <- colorRampPalette(c("darkolivegreen3", "white", "red"))(length(breaksList) - 1)
+
+# Generate the heatmap with the transformed values and custom number formatting
+pheatmap(logpvalMatrix, cluster_rows = FALSE, cluster_cols = FALSE,
+         display_numbers = TRUE,
+         main = "Heatmap of transformed log10(p-values) for miRNA targets between clusters",
+         color = myColorPalette,
+         breaks = breaksList,
+         fontsize_number = 10,
+         angle_col = 45)
+
+
+# Store the names of the top 20 targets of miR-124
+
+top20 <- tarGenesTop[1:20]
+
+# Create an empty list to store the plots
+plots_list <- list()
+
+plotSurfaceComparison(
+  object = main_spata2_obj_hi_res,
+  color_by = top20,
+  pt_size = 2.4
+)
+
+```
+## Plot surface plots of some tagets
+
+```{r}
+
+top4 <- tarGenesTop[1:4]
+
+plotSurfaceComparison(
+  object = main_spata2_obj_hi_res, 
+  color_by = top4, 
+  pt_clrsp = "inferno", 
+  display_image = TRUE, 
+  smooth = FALSE, 
+  alpha_by = TRUE
+) 
+
+plotSurface(
+    object = main_spata2_obj_hi_res,
+    color_by = "Ogfod3",
+    pt_clrsp = "inferno",
+    pt_size = 2.4
+
+  )
+
+plotSurface(
+    object = main_spata2_obj_hi_res,
+    color_by = "Pdcd6",
+    pt_clrsp = "inferno",
+    pt_size = 2.4
+  )
+
+plotSurface(
+    object = main_spata2_obj_hi_res,
+    color_by = "Vamp3",
+    pt_clrsp = "inferno",
+    pt_size = 2.4
+  )
+
+```
+
+
+
+```{r , warning=FALSE}
+
+
+# object with trajectory already
+main_spata2_obj_hi_res <- readRDS("~/MSc_Dissertation_Analysis_Folder_Legion/SPATA/SPATA2_Master_Analysis_Folder/RDS_Files_V5_Spatial_Traj/Brain2_V5_tests_trajectories.rds")
+
+### Create Spatial Trajectories then see targets expression patterns
+#main_spata2_obj_hi_res <- createSpatialTrajectories(object = main_spata2_obj_hi_res)
+
+#getSpatialTrajectories(main_spata2_obj_hi_res)
+
+gene_colors <- color_vector(clrp = "npg", names = top4)
+
+plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "test_1",
+  color_by = "Lhx2",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+  
+)
+
+plotTrajectoryLineplot(
+  object = main_spata2_obj_hi_res, 
+  id = "test_1",
+  variables = top4, 
+  smooth_se = FALSE, 
+  clrp_adjust = gene_colors
+) 
+
+
+plotTrajectoryRidgeplot(
+  object = main_spata2_obj_hi_res,
+  id = "test_1",
+  variables = top4, 
+  clrp_adjust = gene_colors
+) + legendNone()
+
+
+trajectory <- 
+  ggpLayerTrajectories(
+    object = main_spata2_obj_hi_res, 
+    ids = "test_1",
+    size = 1
+    )
+
+tissue_outline <- ggpLayerTissueOutline(object = main_spata2_obj_hi_res)
+
+plist <- 
+  imap(
+    .x = gene_colors, 
+    .f = function(color, top4){
+      
+      plotSurface(main_spata2_obj_hi_res, color_by = top4, display_image = F) + 
+        scale_color_gradient(low = alpha("white", 0), high = color) + 
+        tissue_outline + 
+        trajectory
+      
+    })
+
+wrap_plots(plist, ncol = 2)
+
+
+### save .rds file
+#saveRDS(main_spata2_obj_hi_res, file = "Brain2_V5_tests_trajectories.rds")
+
+```
+
+```{r}
+## spatial trajectory screening
+# catchphrases to subset the models that are of interest (use showModels() to check) 
+model_subset <- c("sharp_peak", "abrupt_ascending", "abrupt_descending", "one_peak_rev", "one_peak", "linear_ascending", "sinus", "two_peaks") 
+
+STS_main_spata2_obj_hi_res <- 
+  spatialTrajectoryScreening(
+    object = main_spata2_obj_hi_res, 
+    id = "test_1", # ID of the spatial trajectory
+    variables = tarGenesTop, # the variables/genes to scree 
+    model_subset = model_subset 
+  )
+
+
+plotOverview(
+  object = STS_main_spata2_obj_hi_res,
+  label_vars = 2, # label top 4 variables/genes per model
+  label_size = 3
+)
+```
+## Plot the gene expression for a trajectory after looking at 20 top targets expression
+
+```{r}
+##plot the genes according to the trajectories
+
+genes_to_plot <- c("Lhx2","Ryr3","Kpna3","Tmco3","Smco4")
+
+#SELECTED MODELS
+showModels(model_subset = model_subset)
+
+# for (gene in genes_to_plot) {
+#   plot1 <- plotSurface(
+#     object = main_spata2_obj_hi_res,
+#     color_by = gene,
+#     pt_clrsp = "inferno"
+#   )
+#   # Store each plot in the list
+#   print(plot1)
+# }
+
+comparison_plot <- plotSurfaceComparison(
+  object = main_spata2_obj_hi_res,
+  color_by = top20,   # Plot all the genes/variables in top20
+  pt_size = 2.4,      # Adjust point size as needed
+  pt_clrsp = "inferno", # Set color spectrum
+  display_image = TRUE, # Option to display the histology image underneath
+  ncol = 5,            # Arrange the plots in a grid with 5 columns
+  nrow = 4             # Arrange the plots in 4 rows
+)
+
+print(comparison_plot)
+
+ggsave("surface_comparison_plot_top20_targets_Brain2.png", plot = comparison_plot, width = 10, height = 10, dpi = 300, device = "png")
+
+
+
+plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "test_1",
+  color_by = "Ryr3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "test_1",
+  color_by = "Slc16a1",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "test_1",
+  color_by = "Vamp3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "test_1",
+  color_by = "Drd2",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+```
+# Create a new trajectory and test vs old
+
+```{r}
+## set main object as the pre-saved object
+#main_spata2_obj_hi_res <- readRDS("~/MSc_Dissertation_Analysis_Folder_Legion/SPATA/SPATA2_Master_Analysis_Folder/Brain2_V5_tests_trajectories.rds")
+
+# check current trajectories
+#getSpatialTrajectories(main_spata2_obj_hi_res)
+
+# Create trajectory
+#main_spata2_obj_hi_res <- createSpatialTrajectories(object = main_spata2_obj_hi_res)
+
+# See if the new one got added
+#getSpatialTrajectories(main_spata2_obj_hi_res)
+
+### save .rds file
+#saveRDS(main_spata2_obj_hi_res, file = "Brain2_V5_tests_trajectories.rds")
+
+plotSurface(
+  object = main_spata2_obj_hi_res,
+  color_by = "bayes_space",
+  pt_size = 2.3,
+  pt_clrp = "uc"
+) + 
+labs(subtitle = "Bayes Space Clusters") +
+theme(
+  legend.text = element_text(size = 8),  # Adjust legend text size
+  legend.title = element_text(size = 10) # Adjust legend title size
+)
+
+plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_1",
+  color_by = "Ryr3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_1",
+  color_by = "Slc16a1",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+### the other trajectory
+plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "test_1",
+  color_by = "Ryr3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "test_1",
+  color_by = "Slc16a1",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+```
+
+
+### Plot all trajectories of 2 specific targets
+
+```{r ,fig.height=18, fig.width=18, out.width="100%" }
+
+#,fig.height=12, fig.width=12, out.width="100%"
+# Load required packages
+library(ggplot2)
+library(gridExtra)  # For arranging plots in a grid
+library(patchwork)  # Alternative for arranging plots
+library(grid) 
+
+# Define your plots as usual
+plot1 <- plotSurface(
+  object = main_spata2_obj_hi_res,
+  color_by = "bayes_space",
+  pt_size = 2.3,
+  pt_clrp = "uc"
+) + 
+labs(subtitle = "Bayes Space Clusters") +
+theme(
+  legend.text = element_text(size = 8),  # Adjust legend text size
+  legend.title = element_text(size = 10) # Adjust legend title size
+)
+
+plot2 <- plotSurface(
+  object = main_spata2_obj_hi_res,
+  color_by = "bayes_space",
+  pt_size = 2.3,
+  pt_clrp = "uc"
+) + 
+labs(subtitle = "Bayes Space Clusters") +
+theme(
+  legend.text = element_text(size = 8),  # Adjust legend text size
+  legend.title = element_text(size = 10) # Adjust legend title size
+)
+
+plot3 <- plotSurface(
+  object = main_spata2_obj_hi_res,
+  color_by = "bayes_space",
+  pt_size = 2.3,
+  pt_clrp = "uc"
+) + 
+labs(subtitle = "Bayes Space Clusters") +
+theme(
+  legend.text = element_text(size = 8),  # Adjust legend text size
+  legend.title = element_text(size = 10) # Adjust legend title size
+)
+
+plot4 <- plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_1",
+  color_by = "Ogfod3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plot5 <- plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_1",
+  color_by = "Slc16a1",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plot6 <- plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_1",
+  color_by = "Vamp3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plot7 <- plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_2",
+  color_by = "Ogfod3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plot8 <- plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_2",
+  color_by = "Slc16a1",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+
+plot9 <- plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_2",
+  color_by = "Vamp3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plot10 <- plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_3",
+  color_by = "Ogfod3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plot11 <- plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_3",
+  color_by = "Slc16a1",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+
+plot12 <- plotSpatialTrajectories(
+  object = main_spata2_obj_hi_res, 
+  ids = "Main_3",
+  color_by = "Vamp3",
+  pt_clrp = "inferno",
+  pt_alpha = 0.2,
+  sgmt_size = 1
+)
+# Automatically detect plot objects in the environment
+plot_objects <- mget(ls(pattern = "^plot\\d+$"))
+
+# Store plots in a list and reorder them
+plots <- list(
+  plot1, plot4, plot5, plot6,   # First row
+  plot2, plot7, plot8, plot9,   # Second row
+  plot3, plot10, plot11, plot12 # Third row
+)
+
+# Determine the number of plots
+num_plots <- length(plots)
+
+# Calculate the grid layout (rows and columns)
+ncol <- ceiling(sqrt(num_plots))  # Number of columns
+nrow <- ceiling(num_plots / ncol) # Number of rows
+
+# Adjust your plots to have some margin space
+adjusted_plots <- lapply(plots, function(p) {
+  p + theme(plot.margin = unit(c(1, 0.5, 0.5, 1), "cm"))  # Increase the margins around each plot
+})
+
+# Arrange the plots with adjusted margins
+arranged_plots <- grid.arrange(grobs = adjusted_plots, ncol = ncol, nrow = nrow,
+                               top = textGrob(""), bottom = textGrob(""),
+                               left = textGrob(""), right = textGrob(""))
+
+# Save the arranged plot as an image with increased spacing
+ggsave("3_spatial_trajectory_plots_Brain2.png", plot = arranged_plots, width = 18, height = 18, dpi = 300, device = "png")
+
+# Alternatively, using patchwork
+# Reduce plots to a single patchwork object
+# combined_plot <- purrr::reduce(plots, `+`) + plot_layout(ncol = ncol, nrow = nrow)
+# print(combined_plot)
+
+```
+
+```{r}
+# trying some dim-red plots
+plotUmap(
+    main_spata2_obj_hi_res,
+    color_by = "bayes_space",
+    color_aes = "color"
+    )+
+  labs(subtitle = "UMAP Plot of bayes_space clustered DE genes")
+
+plotUmap(
+    main_spata2_obj_hi_res,
+    color_by = "kmeans_4_HW",
+    color_aes = "color"
+    )+
+  labs(subtitle = "UMAP Plot of kmeans_4_HW clustered DE genes")
+
+
+plotTsne(
+    main_spata2_obj_hi_res,
+    color_by = "bayes_space",
+    color_aes = "color"
+    )+
+  labs(subtitle = "t-SNE Plot of bayes_space clustered DE genes")
+
+plotTsne(
+    main_spata2_obj_hi_res,
+    color_by = "kmeans_4_HW",
+    color_aes = "color"
+    )+
+  labs(subtitle = "t-SNE Plot of kmeans_4_HW clustered DE genes")
+
+```
+

@@ -1,0 +1,422 @@
+---
+title: "SPATA2_MASTER_ANALYSIS_V4 "
+output:
+  html_document:
+    df_print: paged
+    output_dir: 
+    output_file: 
+  pdf_document:
+    extra_dependencies: subfig
+    latex_engine: xelatex
+header-includes:
+- \usepackage{fontspec}
+- \setmainfont{Times New Roman}
+---
+
+## Setup + Loading Required Libraries:
+
+Ensure Seurat V = 5.0.3 & SPATA2 V = 2.0.4
+
+```{r setup, include=FALSE}
+library(Seurat)
+library(SeuratData)
+library(ggplot2)
+library(patchwork)
+library(tidyverse)
+library(dplyr)
+library(spacexr)
+library(SPATA2)
+library(stringr) # for imaging
+library(BayesSpace)
+library(keras)
+library(readr)
+library(glmGamPoi)
+library(gridExtra)
+library(pheatmap)
+library(RColorBrewer)
+library(knitr)
+
+# Remember to change the output_file parameter in the YAML front matter
+# according to the dataset used
+
+
+## So that sufficient time is available to load the data from SPATAData
+getOption("timeout")
+options(timeout = 100)
+
+# To avoid Warning message during knit to html:
+# ggrepel: 8 unlabeled data points (too many overlaps). 
+# Consider increasing max.overlaps
+options(ggrepel.max.overlaps = Inf)
+
+
+```
+
+## Which chunks need to be changed for a new dataset
+
+| Chunk Name                                    | Specifics                                                                                                                |
+|---------------------|---------------------------------------------------|
+| Creating spata2 object from 10x Dataset       | Path to be appended to dataset_10x_dir                                                                                   |
+| Creating spata2 object from 10x Dataset       | sample_name_spata2_obj according to dataset                                                                              |
+| Creating spata2 object from SPATAData         | sample_name as required                                                                                                  |
+| Setting which spata2 object to use downstream | main_spata2_obj_hi_res to spata2_obj_10x or SPATADAata_t\* as desired                                                    |
+| Visualisation of Dataset                      | xrange and yrange depending on how the rectangle to drawn is desired                                                     |
+| Denoising the data (execution)                | See the results from the runAutoencoderAssessment() subscript and use the recommended activation function and parameters |
+
+: Chunks to be changed for new dataset
+
+## Start of Pipeline, SPATA2 Object Creation
+
+The script works only if you use Seurat V 5.0.3 & SPATA2 V 2.0.4 currently (as noted on 15/08/24).
+
+The link to the 10x dataset used here is: <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM5764419>
+
+Title: FF_Adult_Mouse_Brain_Coronal_V3
+
+Species, Tissue: Mouse, Brain
+
+Note: Denoising Assessement and saving as .rds file is turned off by default. Turn on as needed.
+
+```{r Creating spata2 object from 10x Dataset, echo=TRUE, include=TRUE, message=FALSE, warning=FALSE}
+
+
+# This is how a 10x Dataset from https://www.10xgenomics.com/datasets
+# can be used as a SPATA2 object
+
+# dataset_10x_dir has to be changed depending on where the dataset is stored
+# Make sure you are in the right directory with the required files
+# Ensure that the .h5 is named as "filtered_feature_bc_matrix.h5"
+
+master_script_rmd_dir <- getwd()
+dataset_10x_dir <- file.path(master_script_rmd_dir, 
+  "10x_Datasets/MMS_Datasets/FF_Adult_Mouse_Brain_Coronal")
+
+# Alter the sample name value as required
+# Preferably named well so that it can be easily identified
+
+sample_name_spata2_obj <- "FF_Adult_Mouse_Brain_Coronal_V3"
+
+# Alter the name of the obj for easy identification
+
+spata2_obj_10x <-
+  initiateSpataObject_10X(
+    directory_10X = dataset_10x_dir, # the directory from which to load the data
+    sample_name = sample_name_spata2_obj,
+    SCTransform = list(variable.features.n = 20000),  # This can be changed to a different value
+    NormalizeData = FALSE,
+    FindVariableFeatures = FALSE,
+    ScaleData = FALSE
+    )
+```
+
+## Setting which dataset will be the main spata2 object
+
+```{r Setting which spata2 object to use downstream}
+
+# Depending on which dataset we want to use further
+# Change the object which is being assigned to main_spata2_obj
+# All the analysis (clustering, DEA) will be done and saved to the main_spata2_obj_hi_res
+# main_spata2_obj_low_res is not really needed but is useful to know
+
+main_spata2_obj_hi_res <- spata2_obj_10x
+
+```
+
+## General Information about the dataset
+
+```{r Some general information about the dataset chosen}
+
+# sample name of object
+getSampleName(main_spata2_obj_hi_res)
+
+# Number of genes in the dataset
+nGenes(main_spata2_obj_hi_res)
+
+# Storing list of genes in an object
+genes_main_spata2_obj_hi_res <- getGenes(main_spata2_obj_hi_res)
+
+# Number of barcodes
+nBarcodes(main_spata2_obj_hi_res)
+
+# What Spatial technique was used to generate the dataset
+getSpatialMethod(main_spata2_obj_hi_res)
+
+```
+
+## Imaging the Dataset
+
+```{r Viewing high_res images of the dataset}
+
+# Setting plot title text size for the high and low resolution plots
+
+text_size <- theme(text = element_text(size = 12))
+
+high_res_plot <-
+  plotImageGgplot(main_spata2_obj_hi_res, unit = "px") +
+  labs(subtitle = "High Resolution") +
+  text_size
+
+high_res_plot
+
+# Notice how the x and y axes are different
+# when using pixels as the unit for the plots
+```
+
+## Visualise certain areas of the Tissue
+
+```{r Visualisation of Dataset, message= FALSE, warning=FALSE}
+
+# How to set the range for images depending on size
+# How to zoom in to certain sections of the image
+
+
+# specifying x- and y-range while handling images
+# This is basically the lines for the rectangle
+# Change these values to decide which part of the slide to focus on
+
+xrange <- c("2.5mm", "6.5mm")
+yrange <- c("3.5mm", "7.5mm")
+
+# where to set the breaks is a measure of distance, too
+
+breaks_x <- str_c(0:8, "mm")
+breaks_y <- str_c(0:8, "mm")
+
+rect_add_on <-
+  ggpLayerRect(
+  object = main_spata2_obj_hi_res, 
+  xrange = xrange, 
+  yrange = yrange
+  )
+
+plot1 <- plotImageGgplot(
+  object = main_spata2_obj_hi_res,
+  unit = "mm", 
+  breaks_x = breaks_x,
+  breaks_y = breaks_y
+  ) + 
+  rect_add_on +
+  text_size
+
+plot2 <-plotImageGgplot(
+  object = main_spata2_obj_hi_res,
+  unit = "mm",
+  xrange = xrange,
+  yrange = yrange, 
+  breaks_x = breaks_x,
+  breaks_y = breaks_y
+  ) + 
+  text_size
+
+# Combine the plots side by side
+combined_plot <- plot1 | plot2
+
+# Display the combined plot
+print(combined_plot)
+
+```
+
+## The optimal neural network set up for denoising
+
+## Denoising (Assessment)
+
+This is turned off by default. Turn on if needed.
+
+```{r Denoising the data (assessment), eval=FALSE, include=FALSE}
+
+# Run this script to obtain the Autoencoder Assessment Result
+
+source("SPATA2_V2_Denoising_Subscript.R")
+
+plotAutoencoderAssessment(object = main_spata2_obj_hi_res)
+
+getAutoencoderAssessment(main_spata2_obj_hi_res)
+
+```
+
+## Denoising (Execution)
+
+```{r Denoising the data (execution), eval=TRUE, message=FALSE, results='hide', warning=FALSE}
+
+
+# This worked after i did this
+# main_spata2_obj_hi_res@gdata[["V1_Adult_Mouse_Brain_Coronal_Section_spatial"]] 
+# <- gene_metadata_main_spata2_obj_hi_res
+
+# Assign an empty list to the gdata slot
+# Usually remains empty if SCTransform = TRUE, when creating the spata2 object
+main_spata2_obj_hi_res@gdata <- list()
+
+# This works now
+main_spata2_obj_hi_res <- computeGeneMetaData(main_spata2_obj_hi_res) 
+
+# Parameters Need to be changed for each dataset
+# typically relu gave the best performance
+
+main_spata2_obj_hi_res <-
+    runAutoencoderDenoising(
+    object = main_spata2_obj_hi_res,
+    activation = "relu",
+    mtr_name_output = "denoised",
+    bottleneck = 56,
+    epochs = 20,
+    layers = c(128, 64, 32),
+    dropout = 0.1
+    )
+
+
+```
+
+## Denoising (Plotting an Example)
+
+```{r denoised vs scaled , eval=TRUE}
+
+# The genes might need to be changed depending on the dataset
+
+# # all expression matrices after denoising
+getExpressionMatrixNames(object = main_spata2_obj_hi_res)
+
+# not denoised
+main_spata2_obj_hi_res <- setActiveMatrix(object = main_spata2_obj_hi_res, mtr_name = "scaled")
+
+# change pt_size 
+
+plot1 <- plotSurface(
+  object = main_spata2_obj_hi_res, 
+  color_by = "Sox17", 
+  pt_size = 2.5,
+  pt_alpha = 3,
+  display_image = FALSE
+) + 
+  labs(title = "Scaled (not denoised)")
+
+# denoised
+main_spata2_obj_hi_res <- setActiveMatrix(object = main_spata2_obj_hi_res, mtr_name = "denoised")
+
+plot2 <- plotSurface(
+  object = main_spata2_obj_hi_res, 
+  color_by = "Sox17",
+  pt_size = 2.5,
+  display_image = FALSE
+  ) + 
+  labs(title = "Denoised")
+
+# Combine the plots side by side
+combined_plot <- plot1 | plot2
+
+# Display the combined plot
+print(combined_plot)
+
+```
+
+## Clustering or Segmentation of the Dataset
+
+There are many methods of clustering the dataset and which method should be used is up to the need of the situation. The clustering methods that will be used here are:
+
+-   Hartigan-Wong K-means Algorithm and
+
+-   BayesSpace.
+
+BayesSpace requires a `filtered_feature_bc_matrix/` subdirectory for it to work properly so it worth keeping in mind that it needs to be made for it work alongwith the already essential `spatial/` subdirectory that is used to load the dataset in the `initiateSpataObject_10X()`. So I guess that means it wont run with a SPATAData object as we dont have those files available for it.
+
+```{r Build Clusters, warning=FALSE, message=FALSE}
+
+# Run this script to obtain clustering results
+# which will be saved to the spata2 object
+
+source("SPATA2_V2_Clustering_Subscript.R")
+
+plot1 <- plotSurface(
+  object = main_spata2_obj_hi_res,
+  color_by = "bayes_space",
+  pt_size = 2,
+  pt_clrp = "uc"
+) +
+  labs(subtitle = "Bayes Space Clusters")
+
+plot2 <- plotSurface(
+  object = main_spata2_obj_hi_res,
+  color_by = "kmeans_4_HW",
+  pt_clrp = "uc",
+  pt_size = 2,
+)+
+  labs(subtitle = "HW Kmeans Clusters")
+
+# Combine the plots side by side
+combined_plot <- plot1 | plot2
+
+# Display the combined plot
+print(combined_plot)
+
+```
+
+## Dimension Reduction Plots for the Clustering techniques
+
+Added UMAP and t-SNE plots for both clustering techniques. Probably makes more sense to put these immediately after each clustering step for quick visualisation and the colour of each cluster on the histology imaging and the dim-red plots are consistent.
+
+```{r Dim Red Plots, fig.width=10, fig.height=5}
+
+# Run this script to obtain dim red plots
+
+plot1 <- plotUmap(
+  main_spata2_obj_hi_res,
+  color_by = "bayes_space",
+  color_aes = "color"
+)+
+  labs(subtitle = "UMAP Plot of bayes_space clustered genes")
+
+
+plot2 <-plotUmap(
+  main_spata2_obj_hi_res,
+  color_by = "kmeans_4_HW",
+  color_aes = "color"
+)+
+  labs(subtitle = "UMAP Plot of kmeans_4_HW clustered genes")
+
+# Combine the plots side by side
+combined_plot <- plot1 | plot2
+
+# Display the combined plot
+print(combined_plot)
+
+
+plot1 <-plotTsne(
+  main_spata2_obj_hi_res,
+  color_by = "bayes_space",
+  color_aes = "color"
+)+
+  labs(subtitle = "t-SNE Plot of bayes_space clustered genes")
+
+
+plot2 <-plotTsne(
+  main_spata2_obj_hi_res,
+  color_by = "kmeans_4_HW",
+  color_aes = "color"
+)+
+  labs(subtitle = "t-SNE Plot of kmeans_4_HW clustered genes")
+
+# Combine the plots side by side
+combined_plot <- plot1 | plot2
+
+# Display the combined plot
+print(combined_plot)
+
+```
+
+## Save RDS object at this point if needed
+
+This is turned off by default. Turn it on if needed.
+
+```{r Save the spata2 obj before performing DEA if needed}
+
+# Using sample name from start of the script
+# Concatenate the sample name with the desired file suffix
+rds_file_name <- paste0(sample_name_spata2_obj, "_V3_denoised.rds")
+
+saveRDS(main_spata2_obj_hi_res, file = rds_file_name)
+
+# This is how to load up the saved .rds file
+# main_spata2_obj_hi_res <- readRDS("GSM5691527_Sample_C7d_185B1_4_denoised.rds")
+
+
+```

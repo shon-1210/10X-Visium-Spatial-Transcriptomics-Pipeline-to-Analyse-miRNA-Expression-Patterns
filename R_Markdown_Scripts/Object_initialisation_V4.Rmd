@@ -1,0 +1,279 @@
+---
+title: "SPATA2_Object_initialisation_Tests"
+output:
+  html_document:
+    df_print: paged
+    output_dir: 
+    output_file: 
+  pdf_document:
+    extra_dependencies: subfig
+    latex_engine: xelatex
+header-includes:
+- \usepackage{fontspec}
+- \setmainfont{Times New Roman}
+---
+
+## Setup + Loading Required Libraries:
+
+Ensure Seurat V = 5.0.3 & SPATA2 V = 2.0.4
+
+```{r setup, include=FALSE}
+library(Seurat)
+library(SeuratData)
+library(ggplot2)
+library(patchwork)
+library(tidyverse)
+library(dplyr)
+library(spacexr)
+library(SPATA2)
+library(stringr) # for imaging
+library(BayesSpace)
+library(keras)
+library(readr)
+library(glmGamPoi)
+library(gridExtra)
+library(pheatmap)
+library(RColorBrewer)
+
+# Remember to change the output_file parameter in the YAML front matter
+# according to the dataset used
+
+
+## So that sufficient time is available to load the data from SPATAData
+getOption("timeout")
+options(timeout = 100)
+
+# To avoid Warning message during knit to html:
+# ggrepel: 8 unlabeled data points (too many overlaps). 
+# Consider increasing max.overlaps
+options(ggrepel.max.overlaps = Inf)
+
+
+```
+
+## There can be many different ways we can initiate the SPATA2 object:
+
+Note: Regardless of which way object is initiated, the stress and mitochondrial genes are removed; if you want control over that probably need to create Seurat Object first and then do it.
+
+-   Plain: Just the count matrix
+-   LogNormalised: Count matrix gets log normalised,
+-   SCTransform: Removes mitochondrial genes; Returns a matrix of pearson residuals, not log normalised; Turn off log normalisation steps when using this. 
+
+```{r setting dataset for spata2 object}
+
+
+# This is how a 10x Dataset from https://www.10xgenomics.com/datasets
+# can be used as a SPATA2 object
+
+# dataset_10x_dir has to be changed depending on where the dataset is stored
+# Make sure you are in the right directory with the required files
+# Ensure that the .h5 is named as "filtered_feature_bc_matrix.h5"
+
+master_script_rmd_dir <- getwd()
+dataset_10x_dir <- file.path(master_script_rmd_dir,"10x_Datasets/MMS_Datasets/GSE188888_Heart_2_samples/GSM5691529/Sample_G21d_181A8_2/outs")
+
+# Alter the sample name value as required
+# Preferably named well so that it can be easily identified
+
+sample_name_spata2_obj <- "GSM5691529_Sample_G21d"
+
+
+```
+
+
+## plain spata2 obj; no normalisation
+
+```{r plain spata2 obj}
+# Alter the name of the obj for easy identification
+
+spata2_obj_10x_2_plain <-
+    initiateSpataObject_10X(
+        directory_10X = dataset_10x_dir, # the directory from which to load the data
+        sample_name = sample_name_spata2_obj,
+        SCTransform = FALSE, # can be FALSE or diff value
+        NormalizeData = FALSE,
+        FindVariableFeatures = FALSE,
+        ScaleData = FALSE
+    )
+
+
+# Assuming your sparse matrix object is called 'counts_matrix'
+library(Matrix)
+
+# Extract the non-zero counts
+non_zero_counts <- spata2_obj_10x_2_plain@data[["GSM5691529_Sample_G21d"]][["counts"]]@x
+
+# Plot the distribution of the non-zero counts
+hist(non_zero_counts, breaks = 10000, main = "Distribution of Non-Zero Counts", xlab = "Counts", ylab = "Frequency", xlim = c(0, 30), ylim = c(0,1000000))
+
+# If you want to see the overall distribution including zeros (not recommended for very sparse matrices due to high memory usage):
+## There wont be any zeros as they were removed when the object was created
+dense_counts_matrix <- as.matrix(spata2_obj_10x_2_plain@data[["GSM5691529_Sample_G21d"]][["counts"]])
+
+#head(dense_counts_matrix)
+all_counts <- rowMeans2(dense_counts_matrix)
+hist(all_counts, breaks = 20000, main = "Distribution of All genes Counts Means", xlab = "Counts", ylab = "Frequency", xlim = c(0, 3))
+count_df <- as.data.frame(dense_counts_matrix)
+
+all_counts_vector <- as.vector(all_counts)
+all_counts_df <- data.frame(Gene = names(all_counts), Counts = as.numeric(all_counts))
+all_rows_sums_vector <- rowSums(count_df)
+hist(all_rows_sums_vector, breaks = 10000000, main = "Distribution of All genes count Sums", xlab = "Counts", ylab = "Frequency", xlim = c(0, 10))
+
+```
+## just log normalised
+
+```{r log normalised}
+
+spata2_obj_10x_2_log_normalised <-
+    initiateSpataObject_10X(
+        directory_10X = dataset_10x_dir, # the directory from which to load the data
+        sample_name = sample_name_spata2_obj,
+        SCTransform = FALSE, # can be FALSE or diff value
+        NormalizeData = TRUE,
+        FindVariableFeatures = TRUE,
+        ScaleData = TRUE
+    )
+
+hist(as.vector(spata2_obj_10x_2_log_normalised@data[["GSM5691529_Sample_G21d"]][["scaled"]]), breaks = 100, main = "Distribution of log Normalized Counts")
+
+exp_matrix_log_normalised <- getExpressionMatrix(spata2_obj_10x_2_log_normalised)
+
+# head(exp_matrix_log_normalised)
+```
+
+## log normalised and Sctransform is TRUE
+
+```{r log normalised and Sctransform is TRUE}
+
+# Does sct affect the log distribution
+# This is what i used for my analysis
+
+spata2_obj_10x_2_log_normalised_sct <-
+    initiateSpataObject_10X(
+        directory_10X = dataset_10x_dir, # the directory from which to load the data
+        sample_name = sample_name_spata2_obj,
+        SCTransform = TRUE, # can be FALSE or diff value
+        NormalizeData = TRUE,
+        FindVariableFeatures = TRUE,
+        ScaleData = TRUE
+    )
+
+spata2_obj_10x_2_log_normalised_sct <- computeGeneMetaData(spata2_obj_10x_2_log_normalised_sct) 
+
+
+hist(as.vector(spata2_obj_10x_2_log_normalised_sct@data[["GSM5691529_Sample_G21d"]][["scaled"]]), breaks = 100, main = "Distribution of log Normalized Counts with SCT = TRUE")
+
+exp_matrix_log_normalised_sct <- getExpressionMatrix(spata2_obj_10x_2_log_normalised_sct)
+
+# head(exp_matrix_log_normalised_sct)
+
+```
+
+
+## log normalised and Sctransform is list(variable.features.n set to 20000)
+
+```{r log normalised and Sctransform is variable.features.n set to 20000}
+
+# Does sct affect the log distribution
+
+spata2_obj_10x_2_log_normalised_sct_VARIABLE_FT <-
+    initiateSpataObject_10X(
+        directory_10X = dataset_10x_dir, # the directory from which to load the data
+        sample_name = sample_name_spata2_obj,
+        SCTransform = list(variable.features.n = 20000), # can be FALSE or diff value
+        NormalizeData = TRUE,
+        FindVariableFeatures = TRUE,
+        ScaleData = TRUE
+    )
+
+spata2_obj_10x_2_log_normalised_sct_VARIABLE_FT <- computeGeneMetaData(spata2_obj_10x_2_log_normalised_sct_VARIABLE_FT) 
+
+
+hist(as.vector(spata2_obj_10x_2_log_normalised_sct_VARIABLE_FT@data[["GSM5691529_Sample_G21d"]][["scaled"]]), breaks = 100, main = "Distribution of log Normalized Counts WITH SCT = list(variable.features.n = 20000)")
+
+exp_matrix_log_normalised_sct_VARIABLE_FT <- getExpressionMatrix(spata2_obj_10x_2_log_normalised_sct_VARIABLE_FT)
+
+# head(exp_matrix_log_normalised_sct_VARIABLE_FT)
+
+```
+
+
+## SCT is TRUE ONLY, without specifying anthing else for other parameters;
+
+Previous analysis was done like this; Totally incorrect;
+
+
+```{r SCTransform TRUE ONLY with no other parameters specified}
+
+spata2_obj_10x_2_SCT_ONLY_TRUE <-
+     initiateSpataObject_10X(
+     directory_10X = dataset_10x_dir, # the directory from which to load the data
+     sample_name = sample_name_spata2_obj,
+     SCTransform = TRUE
+     )
+     
+
+spata2_obj_10x_2_SCT_ONLY_TRUE <- computeGeneMetaData(spata2_obj_10x_2_SCT_ONLY_TRUE) 
+
+# Plotting distribution in R
+hist(as.vector(spata2_obj_10x_2_SCT_ONLY_TRUE@data[["GSM5691529_Sample_G21d"]][["scaled"]]), breaks = 100, main = "Distribution of SCTransform() Counts")
+
+exp_matrix_SCT_ONLY_TRUE <- getExpressionMatrix(spata2_obj_10x_2_SCT_ONLY_TRUE)
+
+# head(exp_matrix_SCT_ONLY_TRUE)
+
+```
+
+##  SCT is TRUE and others is FALSE
+
+This is the one I will use in the new scripts; SCT inclusive of all genes and without Standard workflow steps
+
+
+```{r SCT isTRUE and others is FALSE}
+spata2_obj_10x_2_SCT_TRUE_others_False <-
+    initiateSpataObject_10X(
+        directory_10X = dataset_10x_dir, # the directory from which to load the data
+        sample_name = sample_name_spata2_obj,
+        SCTransform = list(variable.features.n = 20000), # can be FALSE or diff value
+        NormalizeData = FALSE,
+        FindVariableFeatures = FALSE,
+        ScaleData = FALSE
+    )
+
+spata2_obj_10x_2_SCT_TRUE_others_False <- computeGeneMetaData(spata2_obj_10x_2_SCT_TRUE_others_False) 
+
+# Plotting distribution in R
+hist(as.vector(spata2_obj_10x_2_SCT_TRUE_others_False@data[["GSM5691529_Sample_G21d"]][["scaled"]]), breaks = 100, main = "Distribution of SCTransform() Counts")
+
+exp_matrix_SCT_TRUE_others_False <- getExpressionMatrix(spata2_obj_10x_2_SCT_TRUE_others_False)
+
+# head(exp_matrix_SCT_TRUE_others_False)
+
+```
+
+## SCT TRUE vut varf.n is set to NULL
+```{r}
+spata2_obj_10x_2_SCT_var_ft_n_Null_others_False <-
+    initiateSpataObject_10X(
+        directory_10X = dataset_10x_dir, # the directory from which to load the data
+        sample_name = sample_name_spata2_obj,
+        SCTransform = list(variable.features.n = NULL), # can be FALSE or diff value
+        NormalizeData = FALSE,
+        FindVariableFeatures = FALSE,
+        ScaleData = FALSE
+    )
+
+spata2_obj_10x_2_SCT_var_ft_n_Null_others_False <- computeGeneMetaData(spata2_obj_10x_2_SCT_var_ft_n_Null_others_False) 
+
+# Plotting distribution in R
+hist(as.vector(spata2_obj_10x_2_SCT_var_ft_n_Null_others_False@data[["GSM5691529_Sample_G21d"]][["scaled"]]), breaks = 100, main = "Distribution of SCTransform() Counts")
+
+exp_matrix_SCT_var_ft_n_Null_others_False <- getExpressionMatrix(spata2_obj_10x_2_SCT_var_ft_n_Null_others_False)
+
+
+# head(exp_matrix_SCT_var_ft_n_Null_others_False)
+
+```
+
+
