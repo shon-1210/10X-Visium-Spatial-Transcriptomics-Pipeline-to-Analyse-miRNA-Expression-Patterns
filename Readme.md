@@ -28,137 +28,127 @@ To explore this, we developed a pipeline to detect the effect of tissue-specific
 Below is a high-level flowchart of the pipeline:
 
 # 10X Visium miRNA Spatial Transcriptomics Pipeline
-
-This document outlines the complete pipeline for analyzing miRNA spatial transcriptomics data using 10X Visium technology.
+*Mobile-Friendly Version*
 
 ## 📁 Section 1: Data Input & Validation
 
-```mermaid
-flowchart LR
-  start([Start])
-  input["10x Visium Data<br/>filtered_feature_bc_matrix.h5<br/>+ spatial folder"]
-  validate["Validate Files<br/>Check paths & image<br/>Confirm matrix"]
-  filesOK{"Files valid?"}
-  fixInputs["Fix paths or<br/>re-run Space Ranger"]
-  
-  start --> input --> validate --> filesOK
-  filesOK -->|No| fixInputs --> validate
-  
-  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
-  classDef decisionNode fill:#FFB6C1,stroke:#333,stroke-width:2px,color:#000
-  
-  class start,input,validate,fixInputs stageNode
-  class filesOK decisionNode
+```
+START → 10x Visium Data → Validate Files → Files Valid?
+                                              ↓
+                                             NO → Fix Paths → (back to Validate)
+                                              ↓
+                                             YES → PROCEED TO SECTION 2
 ```
 
-**→ If files are valid, proceed to Preprocessing**
+**Steps:**
+1. **Start** - Begin pipeline
+2. **10x Visium Data** - Load filtered_feature_bc_matrix.h5 + spatial folder
+3. **Validate Files** - Check paths, image, and gene-barcode matrix
+4. **Files Valid?** - Quality check decision point
+5. **Fix Paths** - Repair issues or re-run Space Ranger (if needed)
 
 ---
 
 ## 🔧 Section 2: Preprocessing
 
-```mermaid
-flowchart LR
-  init["Initialize Object<br/>SPATA2/Seurat<br/>SCTransform v2"]
-  ae["Autoencoder<br/>Assessment<br/>Select parameters"]
-  denoise["Denoise Matrix<br/>Create denoised<br/>expression layer"]
-  
-  init --> ae --> denoise
-  
-  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
-  
-  class init,ae,denoise stageNode
+```
+Initialize Object → Autoencoder Assessment → Denoise Matrix → PROCEED TO SECTION 3
 ```
 
-**→ After denoising, proceed to Spatial Clustering**
+**Steps:**
+1. **Initialize Object** - Create SPATA2/Seurat object with SCTransform v2
+2. **Autoencoder Assessment** - Select optimal activation and bottleneck parameters
+3. **Denoise Matrix** - Create denoised expression layer for analysis
 
 ---
 
 ## 🎯 Section 3: Spatial Clustering
 
-```mermaid
-flowchart LR
-  cluster["Run Clustering<br/>BayesSpace + K-means<br/>Spatial prior"]
-  freeze["Save Results<br/>Export .RDS<br/>Complete object"]
-  clusterQC{"≥ 3 clusters?"}
-  tuneCluster["Tune Parameters<br/>Adjust BayesSpace q<br/>Re-run K-means"]
-  
-  cluster --> freeze --> clusterQC
-  clusterQC -->|No| tuneCluster --> cluster
-  
-  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
-  classDef decisionNode fill:#FFB6C1,stroke:#333,stroke-width:2px,color:#000
-  
-  class cluster,freeze,tuneCluster stageNode
-  class clusterQC decisionNode
+```
+Run Clustering → Save Results → ≥3 Clusters?
+                                     ↓
+                                    NO → Tune Parameters → (back to Run Clustering)
+                                     ↓
+                                    YES → PROCEED TO SECTION 4
 ```
 
-**→ If clustering is successful, proceed to miRNA Analysis**
+**Steps:**
+1. **Run Clustering** - Execute BayesSpace + K-means with spatial prior
+2. **Save Results** - Export .RDS file with complete object
+3. **≥3 Clusters?** - Check if sufficient clusters identified
+4. **Tune Parameters** - Adjust BayesSpace q parameters, re-run K-means (if needed)
 
 ---
 
 ## 🧬 Section 4: miRNA Target Analysis
 
-```mermaid
-flowchart LR
-  targets["Load Targets<br/>TargetScan DB<br/>topN + let-7 control"]
-  logfc["Compute logFC<br/>Cluster vs rest<br/>Pairwise comparisons"]
-  stats["Statistical Tests<br/>Wilcoxon rank-sum<br/>Bonferroni correction"]
-  sigQC{"miRNA significant<br/>≥ 2 clusters &<br/>let-7 non-sig?"}
-  tuneAnalysis["Tune Analysis<br/>Adjust topN<br/>Exclude artifacts"]
-  
-  targets --> logfc --> stats --> sigQC
-  sigQC -->|No| tuneAnalysis --> targets
-  
-  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
-  classDef decisionNode fill:#FFB6C1,stroke:#333,stroke-width:2px,color:#000
-  
-  class targets,logfc,stats,tuneAnalysis stageNode
-  class sigQC decisionNode
+```
+Load Targets → Compute logFC → Statistical Tests → QC Pass?
+                                                      ↓
+                                                     NO → Tune Analysis → (back to Load Targets)
+                                                      ↓
+                                                     YES → PROCEED TO SECTION 5
 ```
 
-**→ If analysis passes QC, proceed to Visualization & Output**
+**Steps:**
+1. **Load Targets** - Import TargetScan database, choose topN + let-7 control
+2. **Compute logFC** - Calculate cluster vs rest, pairwise comparisons
+3. **Statistical Tests** - Wilcoxon rank-sum with Bonferroni correction
+4. **QC Pass?** - Check: miRNA significant in ≥2 clusters AND let-7 non-significant
+5. **Tune Analysis** - Adjust topN, exclude artifacts, recompute stats (if needed)
 
 ---
 
 ## 📊 Section 5: Visualization & Output
 
-```mermaid
-flowchart LR
-  viz["Generate Plots<br/>Heatmaps<br/>Surface plots"]
-  shiny["Shiny App<br/>Interactive plots<br/>Export figures"]
-  outputs["📄 analysis.RDS<br/>📈 plots.html<br/>💻 Shiny interface"]
-  
-  viz --> shiny --> outputs
-  
-  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
-  classDef fileNode fill:#FFFF99,stroke:#333,stroke-width:1px,color:#000
-  
-  class viz,shiny stageNode
-  class outputs fileNode
+```
+Generate Plots → Shiny App → Final Outputs → PIPELINE COMPLETE! 🎉
 ```
 
-**🎉 Pipeline Complete!**
+**Steps:**
+1. **Generate Plots** - Create heatmaps and surface plots
+2. **Shiny App** - Build interactive visualization interface
+3. **Final Outputs** - Export analysis.RDS, plots.html, Shiny interface
 
 ---
 
-## Color Legend
+## 🔄 Pipeline Flow Summary
 
-- 🔵 **Blue (stageNode)**: Processing stages and computational steps
-- 🌸 **Pink (decisionNode)**: Decision points and quality control checks  
-- 🟨 **Yellow (fileNode)**: Output files and final results
+```
+Section 1 → Section 2 → Section 3 → Section 4 → Section 5
+   ↓           ↓           ↓           ↓           ↓
+Data Input  Preprocess  Clustering   miRNA     Visualize
+& Validate              Spatial    Analysis   & Output
+```
 
-## Pipeline Overview
+## 📋 Quick Reference
 
-This pipeline processes 10X Visium spatial transcriptomics data through five main stages:
+**Input Files Required:**
+- `filtered_feature_bc_matrix.h5`
+- `spatial/` folder with images and coordinates
 
-1. **Data Input & Validation**: Ensures all required files are present and valid
-2. **Preprocessing**: Initializes objects and applies normalization and denoising
-3. **Spatial Clustering**: Performs spatial-aware clustering using BayesSpace and K-means
-4. **miRNA Target Analysis**: Analyzes miRNA targets using TargetScan database with statistical testing
-5. **Visualization & Output**: Generates plots and interactive Shiny application
+**Key Quality Checkpoints:**
+- ✅ File validation
+- ✅ Minimum 3 clusters
+- ✅ miRNA significance in ≥2 clusters
+- ✅ let-7 control non-significant
 
-Each stage includes quality control checkpoints and parameter tuning loops to ensure robust results.
+**Final Outputs:**
+- 📄 `analysis.RDS` - Complete results object
+- 📈 `plots.html` - Static visualizations  
+- 💻 Shiny app - Interactive interface
+
+**Technologies Used:**
+- SPATA2/Seurat for spatial analysis
+- BayesSpace for spatial clustering
+- TargetScan for miRNA targets
+- Shiny for interactive visualization
+
+---
+
+*This pipeline processes 10X Visium spatial transcriptomics data through five main stages with built-in quality control and parameter tuning at each step.*
+
+
 ## Getting Started
 
 Follow these steps to set up the project environment and prepare the pipeline for use:
