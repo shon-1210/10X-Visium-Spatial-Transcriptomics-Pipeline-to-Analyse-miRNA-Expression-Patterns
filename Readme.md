@@ -31,73 +31,77 @@ Below is a high-level flowchart of the pipeline:
 
 
 ```mermaid
-flowchart TB
-  %% Top row - Input and Preprocessing
-  subgraph top_row [" "]
-    direction LR
-    subgraph input_phase ["Data Input & Validation"]
-      direction TB
-      start((Start))
-      input[10x Visium<br/>filtered_feature_bc_matrix.h5<br/>spatial/*]
-      validate[Validate<br/>paths & matrix]
-      reqOK{Files OK?}
-      fixInputs[Fix inputs]
-      
-      start --> input --> validate --> reqOK
-      reqOK -->|No| fixInputs --> validate
-    end
-    
-    subgraph preprocessing ["Preprocessing"]
-      direction TB
-      init[SPATA2/Seurat<br/>SCTransform v2]
-      ae[Autoencoder<br/>assess]
-      denoise[Denoise<br/>matrix]
-      
-      init --> ae --> denoise
-    end
-  end
+flowchart LR
+  start([Start])
+  input["10x Visium Data<br/>filtered_feature_bc_matrix.h5<br/>+ spatial folder"]
+  validate["Validate Files<br/>Check paths & image<br/>Confirm matrix"]
+  filesOK{"Files valid?"}
+  fixInputs["Fix paths or<br/>re-run Space Ranger"]
   
-  %% Bottom row - Clustering, Analysis, and Output
-  subgraph bottom_row [" "]
-    direction LR
-    subgraph clustering ["Clustering"]
-      direction TB
-      cluster[BayesSpace &<br/>K-means]
-      freeze[Save .RDS]
-      enoughK{">= 3 clusters?"}
-      tuneClust[Tune<br/>clustering]
-      
-      cluster --> freeze --> enoughK
-      enoughK -->|No| tuneClust --> cluster
-    end
-    
-    subgraph analysis ["miRNA Analysis"]
-      direction TB
-      targets[TargetScan<br/>topN + let-7]
-      logfc[Compute<br/>logFC]
-      wilcox[Wilcoxon<br/>tests]
-      qcSig{"miRNA sig &<br/>let-7 non-sig?"}
-      tuneTopN[Tune<br/>analysis]
-      
-      targets --> logfc --> wilcox --> qcSig
-      qcSig -->|No| tuneTopN --> targets
-    end
-    
-    subgraph output ["Output & Visualization"]
-      direction TB
-      viz[Heatmaps<br/>Surface plots]
-      shiny[Shiny app<br/>interactive]
-      fin((End))
-      
-      viz --> shiny --> fin
-    end
-  end
+  start --> input --> validate --> filesOK
+  filesOK -->|No| fixInputs --> validate
   
-  %% Connect between rows
-  reqOK -->|Yes| init
-  denoise --> cluster
-  enoughK -->|Yes| targets
-  qcSig -->|Yes| viz
+  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
+  classDef decisionNode fill:#FFB6C1,stroke:#333,stroke-width:2px,color:#000
+  
+  class start,input,validate,fixInputs stageNode
+  class filesOK decisionNode
+
+flowchart LR
+  init["Initialize Object<br/>SPATA2/Seurat<br/>SCTransform v2"]
+  ae["Autoencoder<br/>Assessment<br/>Select parameters"]
+  denoise["Denoise Matrix<br/>Create denoised<br/>expression layer"]
+  
+  init --> ae --> denoise
+  
+  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
+  
+  class init,ae,denoise stageNode
+
+flowchart LR
+  cluster["Run Clustering<br/>BayesSpace + K-means<br/>Spatial prior"]
+  freeze["Save Results<br/>Export .RDS<br/>Complete object"]
+  clusterQC{"≥ 3 clusters?"}
+  tuneCluster["Tune Parameters<br/>Adjust BayesSpace q<br/>Re-run K-means"]
+  
+  cluster --> freeze --> clusterQC
+  clusterQC -->|No| tuneCluster --> cluster
+  
+  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
+  classDef decisionNode fill:#FFB6C1,stroke:#333,stroke-width:2px,color:#000
+  
+  class cluster,freeze,tuneCluster stageNode
+  class clusterQC decisionNode
+
+flowchart LR
+  targets["Load Targets<br/>TargetScan DB<br/>topN + let-7 control"]
+  logfc["Compute logFC<br/>Cluster vs rest<br/>Pairwise comparisons"]
+  stats["Statistical Tests<br/>Wilcoxon rank-sum<br/>Bonferroni correction"]
+  sigQC{"miRNA significant<br/>≥ 2 clusters &<br/>let-7 non-sig?"}
+  tuneAnalysis["Tune Analysis<br/>Adjust topN<br/>Exclude artifacts"]
+  
+  targets --> logfc --> stats --> sigQC
+  sigQC -->|No| tuneAnalysis --> targets
+  
+  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
+  classDef decisionNode fill:#FFB6C1,stroke:#333,stroke-width:2px,color:#000
+  
+  class targets,logfc,stats,tuneAnalysis stageNode
+  class sigQC decisionNode
+
+flowchart LR
+  viz["Generate Plots<br/>Heatmaps<br/>Surface plots"]
+  shiny["Shiny App<br/>Interactive plots<br/>Export figures"]
+  outputs["📄 analysis.RDS<br/>📈 plots.html<br/>💻 Shiny interface"]
+  
+  viz --> shiny --> outputs
+  
+  classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
+  classDef fileNode fill:#FFFF99,stroke:#333,stroke-width:1px,color:#000
+  
+  class viz,shiny stageNode
+  class outputs fileNode
+
 ```
 ## Getting Started
 
