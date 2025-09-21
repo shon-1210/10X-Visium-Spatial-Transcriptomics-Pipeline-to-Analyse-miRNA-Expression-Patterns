@@ -27,8 +27,11 @@ To explore this, we developed a pipeline to detect the effect of tissue-specific
 
 Below is a high-level flowchart of the pipeline:
 
-![Pipeline Flowchart](figures/pipeline_flowchart.svg)
+# 10X Visium miRNA Spatial Transcriptomics Pipeline
 
+This document outlines the complete pipeline for analyzing miRNA spatial transcriptomics data using 10X Visium technology.
+
+## 📁 Section 1: Data Input & Validation
 
 ```mermaid
 flowchart LR
@@ -46,7 +49,15 @@ flowchart LR
   
   class start,input,validate,fixInputs stageNode
   class filesOK decisionNode
+```
 
+**→ If files are valid, proceed to Preprocessing**
+
+---
+
+## 🔧 Section 2: Preprocessing
+
+```mermaid
 flowchart LR
   init["Initialize Object<br/>SPATA2/Seurat<br/>SCTransform v2"]
   ae["Autoencoder<br/>Assessment<br/>Select parameters"]
@@ -57,7 +68,15 @@ flowchart LR
   classDef stageNode fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
   
   class init,ae,denoise stageNode
+```
 
+**→ After denoising, proceed to Spatial Clustering**
+
+---
+
+## 🎯 Section 3: Spatial Clustering
+
+```mermaid
 flowchart LR
   cluster["Run Clustering<br/>BayesSpace + K-means<br/>Spatial prior"]
   freeze["Save Results<br/>Export .RDS<br/>Complete object"]
@@ -72,7 +91,15 @@ flowchart LR
   
   class cluster,freeze,tuneCluster stageNode
   class clusterQC decisionNode
+```
 
+**→ If clustering is successful, proceed to miRNA Analysis**
+
+---
+
+## 🧬 Section 4: miRNA Target Analysis
+
+```mermaid
 flowchart LR
   targets["Load Targets<br/>TargetScan DB<br/>topN + let-7 control"]
   logfc["Compute logFC<br/>Cluster vs rest<br/>Pairwise comparisons"]
@@ -88,7 +115,15 @@ flowchart LR
   
   class targets,logfc,stats,tuneAnalysis stageNode
   class sigQC decisionNode
+```
 
+**→ If analysis passes QC, proceed to Visualization & Output**
+
+---
+
+## 📊 Section 5: Visualization & Output
+
+```mermaid
 flowchart LR
   viz["Generate Plots<br/>Heatmaps<br/>Surface plots"]
   shiny["Shiny App<br/>Interactive plots<br/>Export figures"]
@@ -101,8 +136,29 @@ flowchart LR
   
   class viz,shiny stageNode
   class outputs fileNode
-
 ```
+
+**🎉 Pipeline Complete!**
+
+---
+
+## Color Legend
+
+- 🔵 **Blue (stageNode)**: Processing stages and computational steps
+- 🌸 **Pink (decisionNode)**: Decision points and quality control checks  
+- 🟨 **Yellow (fileNode)**: Output files and final results
+
+## Pipeline Overview
+
+This pipeline processes 10X Visium spatial transcriptomics data through five main stages:
+
+1. **Data Input & Validation**: Ensures all required files are present and valid
+2. **Preprocessing**: Initializes objects and applies normalization and denoising
+3. **Spatial Clustering**: Performs spatial-aware clustering using BayesSpace and K-means
+4. **miRNA Target Analysis**: Analyzes miRNA targets using TargetScan database with statistical testing
+5. **Visualization & Output**: Generates plots and interactive Shiny application
+
+Each stage includes quality control checkpoints and parameter tuning loops to ensure robust results.
 ## Getting Started
 
 Follow these steps to set up the project environment and prepare the pipeline for use:
