@@ -165,4 +165,5 @@ The dissertation references an internal University of Edinburgh deployment; the 
 
 ## Acknowledgments
 
-This pipeline was developed as part of an **MSc Bioinformatics project at the University of Edinburgh (2023–2024)**. The repository and code are provided for educational and research use.
+This pipeline was developed as part of an **MSc Bioinformatics project at the University of Edinburgh (2023–2024)**. The repository and code are provided for educational and research use. The complete thesis can be shared on request. Please contact shon.kurian.george@gmail.com if you wish to do so.
+
