@@ -32,44 +32,40 @@ Below is a high-level flowchart of the pipeline:
 
 ```mermaid
 flowchart TB
-  %% Compact vertical pipeline (GitHub-safe)
-
-  %% Nodes
-  start((Start))
-  input[Input\n10x Visium outputs\nfiltered_feature_bc_matrix.h5 + spatial/*]
-  validate[Validate inputs\n- paths & image\n- gene-barcode matrix]
-  reqOK{Required files present?}
-  fixInputs[Fix inputs\nthen re-validate]
-
-  init[Init SPATA2 / Seurat\nSCTransform v2]
-  ae[Autoencoder assess\nchoose activation/bottleneck]
-  denoise[Denoise matrix\nmake denoised layer]
-
-  cluster[Clustering (both)\nBayesSpace + K-means (HW)]
-  freeze[Freeze results\nsave .RDS]
-  enoughK{>= 3 clusters?}
-  tuneClust[Tune clustering\nadjust BayesSpace q / params\nre-run K-means]
-
-  targets[Targets (TargetScan)\nchoose topN; add let-7 control]
-  logfc[Compute logFC\ncluster vs rest; pairwise; distant ctrl]
-  wilcox[Wilcoxon tests\nsigned -log10(p)\nBonferroni threshold]
-  qcSig{miRNA sig in >= 2 clusters\nand let-7 non-sig?}
-  tuneTopN[Tune analysis\nadjust topN / exclude artefacts\nrecompute stats]
-
-  viz[Visualize & export\nheatmaps / surface plots\nHTML/PNGs]
-  shiny[Shiny app\nload .RDS -> interactive plots]
-  fin((End))
-
-  %% Main spine
-  start --> input --> validate --> reqOK
-  reqOK -- Yes --> init --> ae --> denoise --> cluster --> freeze --> enoughK
-  enoughK -- Yes --> targets --> logfc --> wilcox --> qcSig
-  qcSig -- Yes --> viz --> shiny --> fin
-
-  %% Short loops
-  reqOK -- No --> fixInputs --> validate
-  enoughK -- No --> tuneClust --> cluster
-  qcSig -- No --> tuneTopN --> targets
+  %% Stacked horizontal sections for GitHub display
+  subgraph input_phase ["Data Input & Validation"]
+    direction LR
+    start((Start)) --> input[10x Visium<br/>filtered_feature_bc_matrix.h5<br/>spatial/*] --> validate[Validate<br/>paths & matrix] --> reqOK{Files OK?}
+    reqOK -->|No| fixInputs[Fix inputs] --> validate
+  end
+  
+  subgraph preprocessing ["Preprocessing"]
+    direction LR
+    init[SPATA2/Seurat<br/>SCTransform v2] --> ae[Autoencoder<br/>assess] --> denoise[Denoise<br/>matrix]
+  end
+  
+  subgraph clustering ["Clustering"]
+    direction LR
+    cluster[BayesSpace &<br/>K-means] --> freeze[Save .RDS] --> enoughK{">= 3 clusters?"}
+    enoughK -->|No| tuneClust[Tune<br/>clustering] --> cluster
+  end
+  
+  subgraph analysis ["miRNA Analysis"]
+    direction LR
+    targets[TargetScan<br/>topN + let-7] --> logfc[Compute<br/>logFC] --> wilcox[Wilcoxon<br/>tests] --> qcSig{"miRNA sig &<br/>let-7 non-sig?"}
+    qcSig -->|No| tuneTopN[Tune<br/>analysis] --> targets
+  end
+  
+  subgraph output ["Output & Visualization"]
+    direction LR
+    viz[Heatmaps<br/>Surface plots] --> shiny[Shiny app<br/>interactive] --> fin((End))
+  end
+  
+  %% Connect sections vertically
+  reqOK -->|Yes| init
+  denoise --> cluster
+  enoughK -->|Yes| targets
+  qcSig -->|Yes| viz
 ```
 ## Getting Started
 
