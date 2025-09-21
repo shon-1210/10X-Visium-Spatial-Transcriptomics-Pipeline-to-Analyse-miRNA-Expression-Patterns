@@ -32,37 +32,49 @@ Below is a high-level flowchart of the pipeline:
 
 ```mermaid
 flowchart TB
-  %% 10X Visium miRNA Spatial Transcriptomics Pipeline (GitHub-safe)
-  %% Notes: no <br/>, no fancy dashes, only ASCII; line breaks via \n
-  start([Start])
-  input["Input (Data I/O)\n10x Visium outputs\nfiltered_feature_bc_matrix.h5 + spatial/*"]
-  validate["Validate inputs\n- Check file paths and image\n- Confirm gene-barcode matrix present"]
-  reqOK{Required files present?}
-  fixInputs["Fix paths or rerun Space Ranger\nUpdate config and retry"]
-  init["Initialize SPATA2/Seurat object\n- SCTransform v2 (no double normalisation)\n- Save corrected counts and Pearson residuals"]
-  aeAssess["Autoencoder assessment\nSelect activation and bottleneck (often ReLU)"]
-  denoise["Denoise expression matrix\nCreate denoised expression layer"]
-  cluster["Clustering (run both)\n- BayesSpace (spatial prior)\n- K-means (HW; k = BayesSpace clusters)"]
-  freeze["Freeze results\nSave .RDS (object + clustering + denoised)"]
-  enoughK{>= 3 distinct clusters?}
-  tuneClust["Tune clustering\n- Adjust BayesSpace q / params\n- Re-run K-means with new k"]
-  targets["Load miRNA targets (TargetScan)\n- Choose topN (100/200/300)\n- Include let-7 as negative control"]
-  logfc["Compute logFC\n- Cluster vs all others\n- Pairwise neighbour vs neighbour\n- Include distant control"]
-  wilcox["Wilcoxon rank-sum tests\nSigned -log10(p) targets vs non-targets\nBonferroni: |log10 p| >= 4 significant"]
-  qcSig{Tissue miRNA significant in >= 2 clusters\nand let-7 non-significant?}
-  tuneTopN["Tune analysis\n- Adjust topN\n- Revisit clustering (exclude artefacts)\n- Recompute stats"]
-  viz["Visualize and export\n- Heatmaps (cluster vs rest; pairwise)\n- Surface plots\n- Save HTML/PNGs"]
-  shiny["Shiny app\nLoad .RDS -> interactive heatmaps\nExport figures"]
-  
-  end([End])
-  
-  start --> input --> validate --> reqOK
-  reqOK -- Yes --> init --> aeAssess --> denoise --> cluster --> freeze --> enoughK
-  reqOK -- No --> fixInputs --> validate
-  enoughK -- Yes --> targets --> logfc --> wilcox --> qcSig
-  enoughK -- No --> tuneClust --> cluster
-  qcSig -- Yes --> viz --> shiny --> end
-  qcSig -- No --> tuneTopN --> targets
+    start([Start])
+    input["Input Data I/O<br/>10x Visium outputs<br/>filtered_feature_bc_matrix.h5 + spatial/*"]
+    validate["Validate inputs<br/>- Check file paths and image<br/>- Confirm gene-barcode matrix present"]
+    reqOK{Required files present?}
+    fixInputs["Fix paths or rerun Space Ranger<br/>Update config and retry"]
+    init["Initialize SPATA2/Seurat object<br/>- SCTransform v2 no double normalisation<br/>- Save corrected counts and Pearson residuals"]
+    aeAssess["Autoencoder assessment<br/>Select activation and bottleneck often ReLU"]
+    denoise["Denoise expression matrix<br/>Create denoised expression layer"]
+    cluster["Clustering run both<br/>- BayesSpace spatial prior<br/>- K-means HW k = BayesSpace clusters"]
+    freeze["Freeze results<br/>Save .RDS object + clustering + denoised"]
+    enoughK{">= 3 distinct clusters?"}
+    tuneClust["Tune clustering<br/>- Adjust BayesSpace q / params<br/>- Re-run K-means with new k"]
+    targets["Load miRNA targets TargetScan<br/>- Choose topN 100/200/300<br/>- Include let-7 as negative control"]
+    logfc["Compute logFC<br/>- Cluster vs all others<br/>- Pairwise neighbour vs neighbour<br/>- Include distant control"]
+    wilcox["Wilcoxon rank-sum tests<br/>Signed -log10 p targets vs non-targets<br/>Bonferroni |log10 p| >= 4 significant"]
+    qcSig{"Tissue miRNA significant in >= 2 clusters<br/>and let-7 non-significant?"}
+    tuneTopN["Tune analysis<br/>- Adjust topN<br/>- Revisit clustering exclude artefacts<br/>- Recompute stats"]
+    viz["Visualize and export<br/>- Heatmaps cluster vs rest; pairwise<br/>- Surface plots<br/>- Save HTML/PNGs"]
+    shiny["Shiny app<br/>Load .RDS interactive heatmaps<br/>Export figures"]
+    endNode([End])
+    
+    start --> input
+    input --> validate
+    validate --> reqOK
+    reqOK -->|Yes| init
+    reqOK -->|No| fixInputs
+    fixInputs --> validate
+    init --> aeAssess
+    aeAssess --> denoise
+    denoise --> cluster
+    cluster --> freeze
+    freeze --> enoughK
+    enoughK -->|Yes| targets
+    enoughK -->|No| tuneClust
+    tuneClust --> cluster
+    targets --> logfc
+    logfc --> wilcox
+    wilcox --> qcSig
+    qcSig -->|Yes| viz
+    qcSig -->|No| tuneTopN
+    tuneTopN --> targets
+    viz --> shiny
+    shiny --> endNode
 ```
 ## Getting Starteda
 
