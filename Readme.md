@@ -70,9 +70,9 @@ Run Clustering → Save Results → ≥3 Clusters?
 ```
 
 **Steps:**
-1. **Run Clustering** - Execute BayesSpace + K-means with spatial prior
+1. **Run Clustering** - Execute both BayesSpace & K-means clustering methods, set K-means number of clusters to match BayesSpace
 2. **Save Results** - Export .RDS file with complete object
-3. **≥3 Clusters?** - Check if sufficient clusters identified, if not, discard dataset
+3. **≥3 Clusters?** - Check if a sufficient number of clusters are identified (accurately too), if not, discard the dataset
 
 
 ---
@@ -91,7 +91,7 @@ Load Targets → Compute logFC → Statistical Tests → QC Pass?
 1. **Load Targets** - Import TargetScan database, choose topN + let-7 control
 2. **Create Expression Matrix** - Build Expression Matrix from log1p() transformed Corrected Count Matrix
 3. **Compute logFC** -  Calculate logFC as required for individual cluster vs rest comparisons and cluster vs cluster pairwise comparisons, done iteratively for each clustering method
-4. **Statistical Tests** - Wilcoxon rank-sum with Bonferroni correction
+4. **Statistical Tests** - Wilcoxon rank-sum statistical test performed using logFC values of targets and non-targets of the miRNA being analysed; Bonferroni correction to determine p-value significance threshold
 5. **QC Pass?** - Check: miRNA significant in ≥2 clusters AND let-7 non-significant
 6. **Tune Analysis** - Adjust topN, exclude artifacts, recompute stats (if needed)
 
