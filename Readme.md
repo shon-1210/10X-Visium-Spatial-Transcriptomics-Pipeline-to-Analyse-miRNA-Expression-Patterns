@@ -31,7 +31,7 @@ Below is a high-level flowchart of the pipeline:
 
 
 ```mermaid
-flowchart TB
+flowchart LR
     start([Start])
     input["Input Data I/O<br/>10x Visium outputs<br/>filtered_feature_bc_matrix.h5 + spatial/*"]
     validate["Validate inputs<br/>- Check file paths and image<br/>- Confirm gene-barcode matrix present"]
