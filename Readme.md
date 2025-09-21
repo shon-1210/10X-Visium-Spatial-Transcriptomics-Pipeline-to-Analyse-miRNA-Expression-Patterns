@@ -148,63 +148,6 @@ Data Input  Preprocess  Clustering   miRNA     Visualize
 
 *This pipeline processes 10X Visium spatial transcriptomics data through five main stages with built-in quality control and parameter tuning at each step.*
 
-
-## Getting Started
-
-Follow these steps to set up the project environment and prepare the pipeline for use:
-
-1. **Prerequisites – R Setup:** Install **R** (the pipeline was developed and tested on R 4.x) and optionally RStudio for a convenient development environment. Make sure you have internet access from R to install packages. If on Windows, also install Rtools (for compiling packages from source if needed).
-
-2. **Clone the Repository:** Download or clone this repository to your local machine. For example, via command line:  
-   ```bash
-   git clone https://github.com/your-username/10X-Visium-Spatial-Transcriptomics-Pipeline-to-Analyse-miRNA-Expression-Patterns.git
-   ```  
-   Then set your R working directory to the project folder.
-
-3. **Install Required Packages:** The pipeline relies on several R packages (from CRAN, Bioconductor, and GitHub). Below is a list of the main packages and how to install them:
-   ```r
-   # In an R session, install CRAN packages
-   install.packages(c("Seurat", "SeuratData", "ggplot2", "patchwork", 
-                      "tidyverse", "dplyr", "stringr", "readr", 
-                      "glmGamPoi", "gridExtra", "pheatmap"))
-   # Install Bioconductor packages
-   install.packages("BiocManager")
-   BiocManager::install(c("BayesSpace", "spacexr"))
-   # Install SPATA2 (version 2.0.4) from GitHub
-   install.packages("devtools")
-   devtools::install_github("theMILOlab/SPATA2", ref = "v2.0.4")
-   # Install the R Keras package and its TensorFlow backend (for autoencoder)
-   install.packages("keras")
-   keras::install_keras()  # This will download and install TensorFlow
-   ```  
-   **Note:** It’s important to use the package versions above (for example, Seurat v5.0.3 and SPATA2 v2.0.4) to ensure compatibility with the code. Newer versions may have breaking changes. The `keras::install_keras()` step will set up a Python backend for the autoencoder; you may skip it if you already have a working Keras/TensorFlow installation.
-
-4. **Obtain a Visium Dataset:** You will need a 10x Genomics Visium spatial transcriptomics dataset to analyze. If you want to replicate the thesis analysis, you should download the specific example datasets (e.g. from GEO or the original publications) used in the project – these include **heart** and **brain** tissue sections with known tissue-specific miRNAs. (For instance, the thesis utilized data from GEO accessions like GSM5691527, GSM5691529, etc.) Alternatively, you can use **your own Visium dataset**. Make sure you have the **Space Ranger output** directory for your sample (which contains the `filtered_feature_bc_matrix` and `spatial` folder with tissue image and spot coordinates). Place your data in a known location or inside the project directory.  
-
-5. **Configure data paths:** If using your own data or the downloaded example data, update the file paths in the analysis scripts accordingly. In the R Markdown scripts (especially the initialization script), set the path to your Visium data (the folder containing the `outs` or the matrix files). By default, the code may refer to specific file names (e.g., `GSMxxxx_sampleXYZ/outs`); you will need to replace those with your actual paths. Similarly, ensure you have the TargetScan miRNA target data file (a CSV of predicted targets) if you plan to run the miRNA analysis – the code expects it at `data/Targetscan_Data/...csv`. (If you don’t have this file, you can download target prediction data from [TargetScan](https://www.targetscan.org/) or use the one provided in the thesis.) Create a `data` directory in the project if it doesn’t exist, and put the necessary files there, or adjust the paths in the scripts to where your data resides.
-
-Once the environment is set up and data is in place, you can proceed to run the analysis as described below.
-
-## Usage
-
-### Running the Analysis Pipeline
-
-The analysis is organized into a series of R Markdown (`.Rmd`) scripts in the `R_Markdown_Scripts` directory. The main entry point is **`Master_Analysis_Script_V4.Rmd`**, which ties together the full pipeline (from data processing to generating outputs). To run the pipeline:
-
-- **Interactive (RStudio):** Open the `Master_Analysis_Script_V4.Rmd` in RStudio. Ensure the working directory is set to the project folder. You might need to run the preliminary setup code in `Object_initialisation_V4.Rmd` first if you are starting from raw data. This will create the SPATA2 object and perform normalization/denoising for your dataset, saving intermediate results (e.g., as RDS files). After that, run (knit) the `Master_Analysis_Script_V4.Rmd` notebook. This will execute all sections of the pipeline in order. It will produce output files including interactive HTML reports (saved under `HTML_outputs/`) and plots illustrating the spatial expression patterns and cluster analyses.
-
-- **Batch/Scripted:** Alternatively, you can run the pipeline non-interactively. For example, from an R console you could call:  
-  ```r
-  rmarkdown::render("R_Markdown_Scripts/Master_Analysis_Script_V4.Rmd")
-  ```  
-  Make sure to edit any file paths in the scripts to point to your data before running. The `Master_Analysis_Script_V4.Rmd` assumes that the SPATA2 object (with denoised data) is ready to be loaded from an RDS file (to save time on repeated runs). If you haven’t created this yet, run the `Object_initialisation_V4.Rmd` to generate it. After a successful run, check the `HTML_outputs` folder for the results – you can open the `.html` files in a web browser to interactively explore the heatmaps and tables of results.
-
-The pipeline will output various results, such as:
-- **Cluster tables:** Lists of top marker genes for each cluster and statistical comparisons between clusters.
-- **miRNA target overlaps:** Tables showing which predicted miRNA targets are enriched in each cluster’s marker set or at cluster boundaries.
-- **Heatmaps and plots:** Spatial heatmaps (in HTML reports) highlighting gene expression differences (e.g., each cluster vs the rest, or pairwise cluster comparisons with significance indicated). These help visualize potential miRNA effects at the boundaries.
-- If everything is set up correctly, the R Markdown should complete without errors and produce a comprehensive report of the analysis.
-
 ### Launching the Shiny App
 
 The repository includes a Shiny application (in the `Shiny_App_Script` folder, file `SPATA2_app.R`) for interactive exploration of the spatial transcriptomics data and results. To launch the app:
