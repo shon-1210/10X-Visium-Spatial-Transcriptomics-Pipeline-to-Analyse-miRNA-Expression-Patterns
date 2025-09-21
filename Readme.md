@@ -20,7 +20,13 @@
 5. **Visualization & Outputs:** The results are compiled into easily interpretable outputs. The pipeline generates tables of cluster-specific marker genes and miRNA target overlaps, as well as **spatial heatmaps** that illustrate where particular gene expression or miRNA activity is high or low across the tissue slice. For example, it can produce a heatmap showing a cluster’s top genes compared to all other clusters, or pairwise cluster comparison plots highlighting boundary effects. These visualizations are output as HTML reports and/or image files for further inspection.  
 6. **Interactive Exploration:** Finally, the included Shiny app allows users to interactively explore the processed data. Users can load a processed SPATA2 object (as an `.rds` file), then dynamically generate plots and compare clusters via a web interface – without needing to rerun code. This is especially useful for examining specific genes or miRNAs of interest in the spatial context, beyond the static results.  
 
-## Getting Started
+## Pipeline Flowchart
+
+Below is a high-level flowchart of the pipeline:
+
+![Pipeline Flowchart](figures/pipeline_flowchart.svg)
+
+## Getting Starteda
 
 Follow these steps to set up the project environment and prepare the pipeline for use:
 
