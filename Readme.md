@@ -58,6 +58,7 @@ flowchart TB
 
   viz["Visualize & export\nheatmaps / surface plots\nHTML/PNGs"]
   shiny["Shiny app\nload .RDS -> interactive plots"]
+
   end([End])
 
   %% Main spine (keeps it vertical)
