@@ -71,7 +71,7 @@ flowchart TB
   enoughK -- No --> tuneClust --> cluster
   qcSig -- No --> tuneTopN --> targets
 ```
-## Getting Starteda
+## Getting Started
 
 Follow these steps to set up the project environment and prepare the pipeline for use:
 
