@@ -16,11 +16,11 @@ To explore this, we developed a pipeline to detect the effect of tissue-specific
 
 ## How It Works
 
-1. **Data Input & Setup:** The pipeline starts by loading a spatial transcriptomics dataset (10x Visium output, including the count matrix and spatial coordinates/image) and initializing it as a SPATA2/Seurat object. Basic preprocessing like quality control and normalization (using Seurat’s SCTransform v2) is applied to prepare the data for analysis.  
-2. **Denoising with Autoencoders:** An autoencoder neural network is then trained on the expression data to learn a compressed representation. The network’s output is used to reconstruct a denoised expression matrix, reducing technical noise and emphasizing true biological signal.  
+1. **Data Input & Setup:** The pipeline starts by loading a spatial transcriptomics dataset (10x Visium output, including the count matrix and spatial coordinates/image) and initializing it as a SPATA2/Seurat object. Basic preprocessing like quality control and normalization (using Seurat's SCTransform v2) is applied to prepare the data for analysis.  
+2. **Denoising with Autoencoders:** An autoencoder neural network is then trained on the expression data to learn a compressed representation. The network's output is used to reconstruct a denoised expression matrix, reducing technical noise and emphasizing true biological signal.  
 3. **Clustering (K-means & BayesSpace):** The pipeline performs unsupervised clustering on the spatial spots in two ways: (a) **K-means clustering** on the gene expression features to group spots by transcriptional similarity, and (b) **BayesSpace clustering**, which leverages a Bayesian model and spatial information to group neighboring spots into the same cluster. These approaches help identify distinct cell-type regions or spatial domains within the tissue.  
 4. **miRNA Target Analysis:** For each identified cluster and boundary region, the pipeline analyzes gene expression differences and cross-references them with known miRNA target data. Using TargetScan predictions, it checks whether the genes up- or down-regulated at cluster edges are enriched for targets of certain miRNAs (especially tissue-specific miRNAs). This helps evaluate the hypothesis that those miRNAs might be regulating genes at the interface of different cell types.  
-5. **Visualization & Outputs:** The results are compiled into easily interpretable outputs. The pipeline generates tables of cluster-specific marker genes and miRNA target overlaps, as well as **spatial heatmaps** that illustrate where particular gene expression or miRNA activity is high or low across the tissue slice. For example, it can produce a heatmap showing a cluster’s top genes compared to all other clusters, or pairwise cluster comparison plots highlighting boundary effects. These visualizations are output as HTML reports and/or image files for further inspection.  
+5. **Visualization & Outputs:** The results are compiled into easily interpretable outputs. The pipeline generates tables of cluster-specific marker genes and miRNA target overlaps, as well as **spatial heatmaps** that illustrate where particular gene expression or miRNA activity is high or low across the tissue slice. For example, it can produce a heatmap showing a cluster's top genes compared to all other clusters, or pairwise cluster comparison plots highlighting boundary effects. These visualizations are output as HTML reports and/or image files for further inspection.  
 6. **Interactive Exploration:** Finally, the included Shiny app allows users to interactively explore the processed data. Users can load a processed SPATA2 object (as an `.rds` file), then dynamically generate plots and compare clusters via a web interface – without needing to rerun code. This is especially useful for examining specific genes or miRNAs of interest in the spatial context, beyond the static results.  
 
 ## Pipeline Flowchart
@@ -146,30 +146,42 @@ Data Input  Preprocess  Clustering   miRNA     Visualize
 
 ---
 
+### Interactive Shiny App
+
+**🌐 Try the live app: [https://shonkuriangeorge.com/spata2shinyapp/](https://shonkuriangeorge.com/spata2shinyapp/)**
+
+The pipeline includes an interactive Shiny web application for exploring spatial transcriptomics data and miRNA analysis results. You can access the app directly through the website above, which includes example datasets ready for exploration.
+
+**How to use the app:**
+
+1. **Load Dataset** - Use the dropdown menu to select a pre-loaded SPATA2 dataset (brain, heart, or other tissue samples)
+
+2. **Explore Clusters** - Choose clusters of interest to compare:
+   - Select a primary cluster and comparison cluster (or "all other cells")
+   - View cluster-specific marker genes and their spatial distribution
+
+3. **miRNA Analysis** - Investigate miRNA target enrichment:
+   - Select specific miRNAs to examine their predicted targets
+   - Compare target gene expression between neighboring clusters
+   - Visualize spatial patterns of miRNA activity
+
+4. **Interactive Visualization** - Generate and explore plots:
+   - Interactive heatmaps showing gene expression patterns
+   - Spatial plots overlaying expression data on tissue images
+   - Hover for detailed information and download results
+
+5. **Boundary Analysis** - Examine cluster interfaces:
+   - Compare gene expression at cluster boundaries
+   - Identify potential miRNA regulation zones
+   - Test the hypothesis of miRNAs as spatial expression guardians
+
+**For developers:** The complete Shiny app source code is available in the `Shiny_App_Script/` folder (file: `SPATA2_app.R`) if you want to run the app locally or modify it for your own datasets.
+
+**Note:** The web app uses pre-processed example datasets. To analyze your own data, process it through the pipeline first, then either use the local version of the app or contact us about uploading custom datasets.
+
+---
+
 *This pipeline processes 10X Visium spatial transcriptomics data through five main stages with built-in quality control and parameter tuning at each step.*
-
-### Launching the Shiny App
-
-The repository includes a Shiny application (in the `Shiny_App_Script` folder, file `SPATA2_app.R`) for interactive exploration of the spatial transcriptomics data and results. To launch the app:
-
-1. Ensure you have completed the pipeline analysis for at least one dataset and have the resulting SPATA2 object saved as an RDS file (or use the example RDS if provided). By default, the app looks for `.rds` files in a folder `data/RDS_Files_V3_Script/` (this can be changed by editing `rds_directory` at the top of `SPATA2_app.R`). Place your SPATA2 object file in that directory or update the path.
-
-2. In an R session, make sure your working directory is the repository (or set it to the `Shiny_App_Script` directory). Then run:  
-   ```r
-   library(shiny)
-   runApp("Shiny_App_Script")
-   ```  
-   This will start the Shiny app locally. (In RStudio, you can also click the **Run App** button with `SPATA2_app.R` open.)
-
-3. Once the app is running, you’ll see a web interface open. In the app:
-   - Use the dropdown to **select a SPATA2 RDS file** (if you placed one in the data directory, it should appear in the list). This will load the spatial transcriptomics data for that sample.
-   - The app provides controls to choose a cluster of interest and a comparison cluster (or all other cells) to generate heatmaps. You can select which cluster’s markers to visualize and how to compare clusters.
-   - You can also select **miRNAs or gene sets** if the app includes those options, to highlight where their target genes are expressed.
-   - The output will show an interactive heatmap or spatial plot in the main panel, which you can hover for details or download.
-
-4. Use the Shiny app to explore different clusters and boundaries. For example, you might select cluster A vs cluster B to see genes enriched in A relative to B, and observe if those genes include targets of a specific miRNA. The app is a convenient way to test various scenarios without rerunning the R Markdown each time.
-
-**Note:** The Shiny app is for exploration and uses the processed data; any substantial changes to the analysis (e.g., re-running clustering with different parameters) should be done through the R scripts and then re-loaded into the app.
 
 ## Acknowledgments
 
