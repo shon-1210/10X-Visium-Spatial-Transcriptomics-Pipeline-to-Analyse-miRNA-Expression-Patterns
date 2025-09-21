@@ -70,7 +70,7 @@ Run Clustering → Save Results → ≥3 Clusters?
 ```
 
 **Steps:**
-1. **Run Clustering** — Run BayesSpace and K-means; set K-means **k** to match BayesSpace  
+1. **Run Clustering** — Run BayesSpace and K-means clustering techniques; set K-means **k** to match BayesSpace  
 2. **Save Results** — Write the `.rds` object (with clustering and denoised data)  
 3. **≥3 Clusters?** — If fewer than 3 distinct clusters of interest are found (or quality is poor), discard the dataset
 
