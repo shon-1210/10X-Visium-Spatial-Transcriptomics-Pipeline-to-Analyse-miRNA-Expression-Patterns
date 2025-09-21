@@ -89,7 +89,7 @@ Load Targets → Compute logFC → Statistical Tests → QC Pass?
 
 **Steps:**
 1. **Load Targets** - Import TargetScan database, choose topN + let-7 control
-2. **Create Expression Matrix** - Build Expression Matrix from log1p() transformed Corrected Count Matrix
+2. ** Expression Matrix Computed** - Build Expression Matrix from log1p() transformed Corrected Count Matrix
 3. **Compute logFC** -  Calculate logFC as required for individual cluster vs rest comparisons and cluster vs cluster pairwise comparisons, done iteratively for each clustering method
 4. **Statistical Tests** - Wilcoxon rank-sum statistical test performed using logFC values of targets and non-targets of the miRNA being analysed; Bonferroni correction to determine p-value significance threshold
 5. **QC Pass?** - Check: miRNA significant in ≥2 clusters AND let-7 non-significant
@@ -115,8 +115,9 @@ Generate Plots → Shiny App → Final Outputs → PIPELINE COMPLETE! 🎉
 ```
 Section 1 → Section 2 → Section 3 → Section 4 → Section 5
    ↓           ↓           ↓           ↓           ↓
-Data Input  Preprocess  Clustering   miRNA     Visualize
-& Validate              Spatial    Analysis   & Output
+Data Input  Preprocess  Clustering   miRNA     Visualise
+& Validate              & calculate  Analysis  & Output
+                          logFC                                  
 ```
 
 ## 📋 Quick Reference
@@ -132,15 +133,15 @@ Data Input  Preprocess  Clustering   miRNA     Visualize
 - ✅ let-7 control non-significant
 
 **Final Outputs:**
-- 📄 `analysis.RDS` - Complete results object
-- 📈 `plots.html` - Static visualizations  
+- 📄 `.RDS` - Complete results object
+- 📈 `.html` - Static visualisations  
 - 💻 Shiny app - Interactive interface
 
 **Technologies Used:**
 - SPATA2/Seurat for spatial analysis
-- BayesSpace for spatial clustering
-- TargetScan for miRNA targets
-- Shiny for interactive visualization
+- BayesSpace & K-means for spatial clustering
+- TargetScan for miRNA targets list
+- Shiny for interactive visualisation
 
 ---
 
@@ -155,23 +156,21 @@ The pipeline includes an interactive Shiny web application for exploring spatial
 1. **Load Dataset** - Use the dropdown menu to select a pre-loaded SPATA2 dataset (brain, heart, or other tissue samples)
 
 2. **Explore Clusters** - Choose clusters of interest to compare:
-   - Select a primary cluster and comparison cluster (or "all other cells")
-   - View cluster-specific marker genes and their spatial distribution
+   - View individual cluster vs all comparison heatmap for a specific clustering method
+   - Choose up to 3 cluster vs cluster comparison sets, which are plotted instantaneously
 
 3. **miRNA Analysis** - Investigate miRNA target enrichment:
-   - Select specific miRNAs to examine their predicted targets
-   - Compare target gene expression between neighboring clusters
-   - Visualize spatial patterns of miRNA activity
+   - Compare the absence or presence of the miRNAs analysed in each cluster
+   - Compare target gene expression differences between neighbouring clusters
+   - Visualise spatial expression patterns of miRNA activity
 
 4. **Interactive Visualization** - Generate and explore plots:
-   - Interactive heatmaps showing gene expression patterns
-   - Spatial plots overlaying expression data on tissue images
-   - Hover for detailed information and download results
+   - Interactive heatmaps showing miRNA expression patterns
+   - Clusters overlaying H&E image of tissue images
 
 5. **Boundary Analysis** - Examine cluster interfaces:
-   - Compare gene expression at cluster boundaries
-   - Identify potential miRNA regulation zones
-   - Test the hypothesis of miRNAs as spatial expression guardians
+   - Compare gene expression between neighbouring clusters
+   - Identify potential miRNA regulation zones or patterns
 
 **For developers:** The complete Shiny app source code is available in the `Shiny_App_Script/` folder (file: `SPATA2_app.R`) if you want to run the app locally or modify it for your own datasets.
 
