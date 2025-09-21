@@ -62,7 +62,7 @@ Initialize Object → Autoencoder Assessment → Denoise Matrix → PROCEED TO S
 
 ---
 
-## 🎯 Section 3: Spatial Clustering
+## 🎯 Section 3: Clustering + Save .RDS file for downstream analysis
 
 ```
 Run Clustering → Save Results → ≥3 Clusters?
@@ -75,8 +75,8 @@ Run Clustering → Save Results → ≥3 Clusters?
 **Steps:**
 1. **Run Clustering** - Execute BayesSpace + K-means with spatial prior
 2. **Save Results** - Export .RDS file with complete object
-3. **≥3 Clusters?** - Check if sufficient clusters identified
-4. **Tune Parameters** - Adjust BayesSpace q parameters, re-run K-means (if needed)
+3. **≥3 Clusters?** - Check if sufficient clusters identified, if not, discard dataset
+
 
 ---
 
@@ -92,10 +92,11 @@ Load Targets → Compute logFC → Statistical Tests → QC Pass?
 
 **Steps:**
 1. **Load Targets** - Import TargetScan database, choose topN + let-7 control
-2. **Compute logFC** - Calculate cluster vs rest, pairwise comparisons
-3. **Statistical Tests** - Wilcoxon rank-sum with Bonferroni correction
-4. **QC Pass?** - Check: miRNA significant in ≥2 clusters AND let-7 non-significant
-5. **Tune Analysis** - Adjust topN, exclude artifacts, recompute stats (if needed)
+2. **Create Expression Matrix** - Build Expression Matrix from log1p() transformed Corrected Count Matrix
+3. **Compute logFC** -  Calculate logFC as required for individual cluster vs rest comparisons and cluster vs cluster pairwise comparisons, done iteratively for each clustering method
+4. **Statistical Tests** - Wilcoxon rank-sum with Bonferroni correction
+5. **QC Pass?** - Check: miRNA significant in ≥2 clusters AND let-7 non-significant
+6. **Tune Analysis** - Adjust topN, exclude artifacts, recompute stats (if needed)
 
 ---
 
