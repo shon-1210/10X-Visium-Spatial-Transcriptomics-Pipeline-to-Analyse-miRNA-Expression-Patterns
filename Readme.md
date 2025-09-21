@@ -31,50 +31,46 @@ Below is a high-level flowchart of the pipeline:
 
 
 ```mermaid
-flowchart LR
-    start([Start])
-    input["Input Data I/O<br/>10x Visium outputs<br/>filtered_feature_bc_matrix.h5 + spatial/*"]
-    validate["Validate inputs<br/>- Check file paths and image<br/>- Confirm gene-barcode matrix present"]
-    reqOK{Required files present?}
-    fixInputs["Fix paths or rerun Space Ranger<br/>Update config and retry"]
-    init["Initialize SPATA2/Seurat object<br/>- SCTransform v2 no double normalisation<br/>- Save corrected counts and Pearson residuals"]
-    aeAssess["Autoencoder assessment<br/>Select activation and bottleneck often ReLU"]
-    denoise["Denoise expression matrix<br/>Create denoised expression layer"]
-    cluster["Clustering run both<br/>- BayesSpace spatial prior<br/>- K-means HW k = BayesSpace clusters"]
-    freeze["Freeze results<br/>Save .RDS object + clustering + denoised"]
-    enoughK{">= 3 distinct clusters?"}
-    tuneClust["Tune clustering<br/>- Adjust BayesSpace q / params<br/>- Re-run K-means with new k"]
-    targets["Load miRNA targets TargetScan<br/>- Choose topN 100/200/300<br/>- Include let-7 as negative control"]
-    logfc["Compute logFC<br/>- Cluster vs all others<br/>- Pairwise neighbour vs neighbour<br/>- Include distant control"]
-    wilcox["Wilcoxon rank-sum tests<br/>Signed -log10 p targets vs non-targets<br/>Bonferroni |log10 p| >= 4 significant"]
-    qcSig{"Tissue miRNA significant in >= 2 clusters<br/>and let-7 non-significant?"}
-    tuneTopN["Tune analysis<br/>- Adjust topN<br/>- Revisit clustering exclude artefacts<br/>- Recompute stats"]
-    viz["Visualize and export<br/>- Heatmaps cluster vs rest; pairwise<br/>- Surface plots<br/>- Save HTML/PNGs"]
-    shiny["Shiny app<br/>Load .RDS interactive heatmaps<br/>Export figures"]
-    endNode([End])
-    
-    start --> input
-    input --> validate
-    validate --> reqOK
-    reqOK -->|Yes| init
-    reqOK -->|No| fixInputs
-    fixInputs --> validate
-    init --> aeAssess
-    aeAssess --> denoise
-    denoise --> cluster
-    cluster --> freeze
-    freeze --> enoughK
-    enoughK -->|Yes| targets
-    enoughK -->|No| tuneClust
-    tuneClust --> cluster
-    targets --> logfc
-    logfc --> wilcox
-    wilcox --> qcSig
-    qcSig -->|Yes| viz
-    qcSig -->|No| tuneTopN
-    tuneTopN --> targets
-    viz --> shiny
-    shiny --> endNode
+flowchart TB
+  %% Compact, vertical layout (GitHub-safe)
+
+  %% Nodes
+  start([Start])
+  input["Input\n10x Visium outputs\nfiltered_feature_bc_matrix.h5 + spatial/*"]
+  validate["Validate inputs\n- paths & image\n- gene-barcode matrix"]
+  reqOK{Required files present?}
+  fixInputs["Fix paths / rerun Space Ranger\nthen re-validate"]
+
+  init["Init SPATA2 / Seurat\nSCTransform v2"]
+  ae["Autoencoder assess\nchoose activation/bottleneck"]
+  denoise["Denoise matrix\ncreate 'denoised' layer"]
+
+  cluster["Clustering (both)\nBayesSpace + K-means (HW)"]
+  freeze["Freeze results\nsave .RDS (object + clustering + denoised)"]
+  enoughK{>= 3 distinct clusters?}
+  tuneClust["Tune clustering\nadjust BayesSpace q / params\nre-run K-means"]
+
+  targets["Targets (TargetScan)\nselect topN (100/200/300)\ninclude let-7 control"]
+  logfc["Compute logFC\ncluster vs rest; pairwise; distant ctrl"]
+  wilcox["Wilcoxon tests\nsigned -log10(p)\nBonferroni threshold"]
+  qcSig{Tissue miRNA significant in >=2 clusters\nAND let-7 non-significant?}
+  tuneTopN["Tune analysis\nadjust topN / exclude artefacts\nrecompute stats"]
+
+  viz["Visualize & export\nheatmaps / surface plots\nHTML/PNGs"]
+  shiny["Shiny app\nload .RDS -> interactive plots"]
+  end([End])
+
+  %% Main spine (keeps it vertical)
+  start --> input --> validate --> reqOK
+  reqOK -->|Yes| init --> ae --> denoise --> cluster --> freeze --> enoughK
+  enoughK -->|Yes| targets --> logfc --> wilcox --> qcSig
+  qcSig -->|Yes| viz --> shiny --> end
+
+  %% Short downward loops (avoid horizontal sprawl)
+  reqOK -->|No| fixInputs --> validate
+  enoughK -->|No| tuneClust --> cluster
+  qcSig -->|No| tuneTopN --> targets
+
 ```
 ## Getting Starteda
 
