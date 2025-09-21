@@ -34,30 +34,30 @@ Below is a high-level flowchart of the pipeline:
 flowchart TB
   %% Stacked horizontal sections for GitHub display
   subgraph input_phase ["Data Input & Validation"]
-    direction LR
+    direction RL
     start((Start)) --> input[10x Visium<br/>filtered_feature_bc_matrix.h5<br/>spatial/*] --> validate[Validate<br/>paths & matrix] --> reqOK{Files OK?}
     reqOK -->|No| fixInputs[Fix inputs] --> validate
   end
   
   subgraph preprocessing ["Preprocessing"]
-    direction LR
+    direction RL
     init[SPATA2/Seurat<br/>SCTransform v2] --> ae[Autoencoder<br/>assess] --> denoise[Denoise<br/>matrix]
   end
   
   subgraph clustering ["Clustering"]
-    direction LR
+    direction RL
     cluster[BayesSpace &<br/>K-means] --> freeze[Save .RDS] --> enoughK{">= 3 clusters?"}
     enoughK -->|No| tuneClust[Tune<br/>clustering] --> cluster
   end
   
   subgraph analysis ["miRNA Analysis"]
-    direction LR
+    direction RL
     targets[TargetScan<br/>topN + let-7] --> logfc[Compute<br/>logFC] --> wilcox[Wilcoxon<br/>tests] --> qcSig{"miRNA sig &<br/>let-7 non-sig?"}
     qcSig -->|No| tuneTopN[Tune<br/>analysis] --> targets
   end
   
   subgraph output ["Output & Visualization"]
-    direction LR
+    direction RL
     viz[Heatmaps<br/>Surface plots] --> shiny[Shiny app<br/>interactive] --> fin((End))
   end
   
