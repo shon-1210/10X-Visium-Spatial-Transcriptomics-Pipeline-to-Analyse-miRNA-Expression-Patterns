@@ -1,4 +1,6 @@
-# 10X Visium Spatial Transcriptomics Pipeline to Analyse miRNA Expression Patterns
+# Project Title: Using spatial transcriptomics to evaluate if microRNAs regulate expression profiles at cell-type boundaries 
+
+## A 10X Visium Spatial Transcriptomics Pipeline to Analyse miRNA Expression Patterns
 
 **Abstract:**  
 
