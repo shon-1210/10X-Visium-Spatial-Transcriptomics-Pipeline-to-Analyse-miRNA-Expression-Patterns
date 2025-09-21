@@ -27,8 +27,6 @@ To explore this, we developed a pipeline to detect the effect of tissue-specific
 
 Below is a high-level flowchart of the pipeline:
 
-# 10X Visium miRNA Spatial Transcriptomics Pipeline
-
 ## 📁 Section 1: Data Input & Validation
 
 ```
