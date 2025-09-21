@@ -32,36 +32,68 @@ Below is a high-level flowchart of the pipeline:
 
 ```mermaid
 flowchart TB
-  %% Stacked horizontal sections for GitHub display
-  subgraph input_phase ["Data Input & Validation"]
-    direction RL
-    start((Start)) --> input[10x Visium<br/>filtered_feature_bc_matrix.h5<br/>spatial/*] --> validate[Validate<br/>paths & matrix] --> reqOK{Files OK?}
-    reqOK -->|No| fixInputs[Fix inputs] --> validate
+  %% Top row - Input and Preprocessing
+  subgraph top_row [" "]
+    direction LR
+    subgraph input_phase ["Data Input & Validation"]
+      direction TB
+      start((Start))
+      input[10x Visium<br/>filtered_feature_bc_matrix.h5<br/>spatial/*]
+      validate[Validate<br/>paths & matrix]
+      reqOK{Files OK?}
+      fixInputs[Fix inputs]
+      
+      start --> input --> validate --> reqOK
+      reqOK -->|No| fixInputs --> validate
+    end
+    
+    subgraph preprocessing ["Preprocessing"]
+      direction TB
+      init[SPATA2/Seurat<br/>SCTransform v2]
+      ae[Autoencoder<br/>assess]
+      denoise[Denoise<br/>matrix]
+      
+      init --> ae --> denoise
+    end
   end
   
-  subgraph preprocessing ["Preprocessing"]
-    direction RL
-    init[SPATA2/Seurat<br/>SCTransform v2] --> ae[Autoencoder<br/>assess] --> denoise[Denoise<br/>matrix]
+  %% Bottom row - Clustering, Analysis, and Output
+  subgraph bottom_row [" "]
+    direction LR
+    subgraph clustering ["Clustering"]
+      direction TB
+      cluster[BayesSpace &<br/>K-means]
+      freeze[Save .RDS]
+      enoughK{">= 3 clusters?"}
+      tuneClust[Tune<br/>clustering]
+      
+      cluster --> freeze --> enoughK
+      enoughK -->|No| tuneClust --> cluster
+    end
+    
+    subgraph analysis ["miRNA Analysis"]
+      direction TB
+      targets[TargetScan<br/>topN + let-7]
+      logfc[Compute<br/>logFC]
+      wilcox[Wilcoxon<br/>tests]
+      qcSig{"miRNA sig &<br/>let-7 non-sig?"}
+      tuneTopN[Tune<br/>analysis]
+      
+      targets --> logfc --> wilcox --> qcSig
+      qcSig -->|No| tuneTopN --> targets
+    end
+    
+    subgraph output ["Output & Visualization"]
+      direction TB
+      viz[Heatmaps<br/>Surface plots]
+      shiny[Shiny app<br/>interactive]
+      fin((End))
+      
+      viz --> shiny --> fin
+    end
   end
   
-  subgraph clustering ["Clustering"]
-    direction RL
-    cluster[BayesSpace &<br/>K-means] --> freeze[Save .RDS] --> enoughK{">= 3 clusters?"}
-    enoughK -->|No| tuneClust[Tune<br/>clustering] --> cluster
-  end
-  
-  subgraph analysis ["miRNA Analysis"]
-    direction RL
-    targets[TargetScan<br/>topN + let-7] --> logfc[Compute<br/>logFC] --> wilcox[Wilcoxon<br/>tests] --> qcSig{"miRNA sig &<br/>let-7 non-sig?"}
-    qcSig -->|No| tuneTopN[Tune<br/>analysis] --> targets
-  end
-  
-  subgraph output ["Output & Visualization"]
-    direction RL
-    viz[Heatmaps<br/>Surface plots] --> shiny[Shiny app<br/>interactive] --> fin((End))
-  end
-  
-  %% Connect sections vertically
+  %% Connect between rows
   reqOK -->|Yes| init
   denoise --> cluster
   enoughK -->|Yes| targets
