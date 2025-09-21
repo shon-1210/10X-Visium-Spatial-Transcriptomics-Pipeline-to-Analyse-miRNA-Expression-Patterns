@@ -29,6 +29,49 @@ Below is a high-level flowchart of the pipeline:
 
 ![Pipeline Flowchart](figures/pipeline_flowchart.svg)
 
+flowchart TB
+  %% 10X Visium miRNA Spatial Transcriptomics Pipeline (Classic Flowchart)
+  %% Orientation: Top -> Bottom
+  %% Decision branches labeled Yes/No
+
+  %% Nodes
+  start([Start])
+  input[[Input (Data I/O)<br/>10x Visium outputs<br/>filtered_feature_bc_matrix.h5 + spatial/*]]
+  validate([Validate inputs<br/>• Check file paths & image<br/>• Confirm gene–barcode matrix present])
+  reqOK{Required files present?}
+  fixInputs([Fix paths / rerun Space Ranger<br/>Update config and retry])
+
+  init([Initialize SPATA2/Seurat object<br/>• SCTransform v2 (no double normalisation)<br/>• Save corrected counts & Pearson residuals])
+  aeAssess([Autoencoder assessment<br/>Select activation + bottleneck (often ReLU)])
+  denoise([Denoise expression matrix<br/>Create "denoised" expression layer])
+
+  cluster([Clustering (run both)<br/>• BayesSpace (spatial prior)<br/>• K-means (HW; k = BayesSpace clusters)])
+  freeze([Freeze results<br/>Save .RDS (object + clustering + denoised)])
+  enoughK{≥ 3 distinct clusters?}
+  tuneClust([Tune clustering<br/>• Adjust BayesSpace q / params<br/>• Re-run K-means with new k])
+
+  targets([Load miRNA targets (TargetScan)<br/>• Choose topN (100/200/300)<br/>• Include let-7 as negative control])
+  logfc([Compute logFC<br/>• Cluster vs all others<br/>• Pairwise neighbour vs neighbour<br/>• Include distant control])
+  wilcox([Wilcoxon rank-sum tests<br/>Signed –log10(p) targets vs non-targets<br/>Bonferroni: |log10 p| ≥ 4 significant])
+  qcSig{Tissue miRNA significant in ≥2 clusters<br/>& let-7 non-significant?}
+  tuneTopN([Tune analysis<br/>• Adjust topN<br/>• Revisit clustering (exclude artefacts)<br/>• Recompute stats])
+
+  viz([Visualize & export<br/>• Heatmaps (cluster vs rest; pairwise)<br/>• Surface plots<br/>• Save HTML/PNGs])
+  shiny([Shiny app<br/>Load .RDS → interactive heatmaps<br/>Export figures])
+  end([End])
+
+  %% Edges
+  start --> input --> validate --> reqOK
+  reqOK -- Yes --> init --> aeAssess --> denoise --> cluster --> freeze --> enoughK
+  reqOK -- No --> fixInputs --> validate
+
+  enoughK -- Yes --> targets --> logfc --> wilcox --> qcSig
+  enoughK -- No --> tuneClust --> cluster
+
+  qcSig -- Yes --> viz --> shiny --> end
+  qcSig -- No --> tuneTopN --> targets
+
+
 ## Getting Starteda
 
 Follow these steps to set up the project environment and prepare the pipeline for use:
