@@ -31,46 +31,45 @@ Below is a high-level flowchart of the pipeline:
 
 
 ```mermaid
-flowchart LR
-  %% Two vertical lanes, still compact
+flowchart TB
+  %% Compact vertical pipeline (GitHub-safe)
 
-  subgraph A[Preprocess & Cluster]
-  direction TB
-    start([Start])
-    input["Input\n10x Visium outputs"]
-    validate["Validate inputs"]
-    reqOK{Files OK?}
-    fixInputs["Fix inputs\nthen re-validate"]
-    init["Init SPATA2/Seurat\nSCTransform v2"]
-    ae["AE assess"]
-    denoise["Denoise matrix"]
-    cluster["Clustering\nBayesSpace + K-means"]
-    freeze["Freeze .RDS"]
-    enoughK{>= 3 clusters?}
-    start --> input --> validate --> reqOK
-    reqOK -->|Yes| init --> ae --> denoise --> cluster --> freeze --> enoughK
-    reqOK -->|No| fixInputs --> validate
-    enoughK -->|No| tuneClust["Tune clustering"] --> cluster
-  end
+  %% Nodes
+  start((Start))
+  input[Input\n10x Visium outputs\nfiltered_feature_bc_matrix.h5 + spatial/*]
+  validate[Validate inputs\n- paths & image\n- gene-barcode matrix]
+  reqOK{Required files present?}
+  fixInputs[Fix inputs\nthen re-validate]
 
-  subgraph B[Targets, Tests & Output]
-  direction TB
-    targets["Targets (TargetScan)\nchoose topN; let-7 ctrl"]
-    logfc["Compute logFC"]
-    wilcox["Wilcoxon tests\nBonferroni"]
-    qcSig{miRNA sig in >=2 clusters\nAND let-7 non-sig?}
-    tuneTopN["Tune analysis\nadjust topN / artefacts"]
-    viz["Visualize & export"]
-    shiny["Shiny app"]
-    endNode([End])
-    targets --> logfc --> wilcox --> qcSig
-    qcSig -->|Yes| viz --> shiny --> endNode
-    qcSig -->|No| tuneTopN --> targets
-  end
+  init[Init SPATA2 / Seurat\nSCTransform v2]
+  ae[Autoencoder assess\nchoose activation/bottleneck]
+  denoise[Denoise matrix\nmake denoised layer]
 
-  enoughK -->|Yes| targets
+  cluster[Clustering (both)\nBayesSpace + K-means (HW)]
+  freeze[Freeze results\nsave .RDS]
+  enoughK{>= 3 clusters?}
+  tuneClust[Tune clustering\nadjust BayesSpace q / params\nre-run K-means]
 
+  targets[Targets (TargetScan)\nchoose topN; add let-7 control]
+  logfc[Compute logFC\ncluster vs rest; pairwise; distant ctrl]
+  wilcox[Wilcoxon tests\nsigned -log10(p)\nBonferroni threshold]
+  qcSig{miRNA sig in >= 2 clusters\nand let-7 non-sig?}
+  tuneTopN[Tune analysis\nadjust topN / exclude artefacts\nrecompute stats]
 
+  viz[Visualize & export\nheatmaps / surface plots\nHTML/PNGs]
+  shiny[Shiny app\nload .RDS -> interactive plots]
+  fin((End))
+
+  %% Main spine
+  start --> input --> validate --> reqOK
+  reqOK -- Yes --> init --> ae --> denoise --> cluster --> freeze --> enoughK
+  enoughK -- Yes --> targets --> logfc --> wilcox --> qcSig
+  qcSig -- Yes --> viz --> shiny --> fin
+
+  %% Short loops
+  reqOK -- No --> fixInputs --> validate
+  enoughK -- No --> tuneClust --> cluster
+  qcSig -- No --> tuneTopN --> targets
 ```
 ## Getting Starteda
 
