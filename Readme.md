@@ -53,6 +53,7 @@ flowchart TB
   tuneTopN["Tune analysis\n- Adjust topN\n- Revisit clustering (exclude artefacts)\n- Recompute stats"]
   viz["Visualize and export\n- Heatmaps (cluster vs rest; pairwise)\n- Surface plots\n- Save HTML/PNGs"]
   shiny["Shiny app\nLoad .RDS -> interactive heatmaps\nExport figures"]
+  
   end([End])
   
   start --> input --> validate --> reqOK
