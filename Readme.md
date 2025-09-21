@@ -29,6 +29,8 @@ Below is a high-level flowchart of the pipeline:
 
 ![Pipeline Flowchart](figures/pipeline_flowchart.svg)
 
+
+```mermaid
 flowchart TB
   %% 10X Visium miRNA Spatial Transcriptomics Pipeline (Classic Flowchart)
   %% Orientation: Top -> Bottom
@@ -70,8 +72,7 @@ flowchart TB
 
   qcSig -- Yes --> viz --> shiny --> end
   qcSig -- No --> tuneTopN --> targets
-
-
+```
 ## Getting Starteda
 
 Follow these steps to set up the project environment and prepare the pipeline for use:
